@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>即时销售报告 - 控制面板</title>
+    <style>
+        /* 基础样式复位 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+
+        body {
+            background-color: #f2f3f5; 
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* 侧边栏样式 */
+        .sidebar {
+            width: 40px;
+            background-color: #1d232d; 
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 15px 0;
+            flex-shrink: 0;
+        }
+
+        .sidebar-logo {
+            width: 30px;
+            height: 30px;
+            background-color: #fff; 
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+
+        .nav-item {
+            width: 100%;
+            padding: 12px 0;
+            text-align: center;
+            font-size: 12px;
+            color: #a9adb2;
+            cursor: pointer;
+        }
+
+        .nav-item.active {
+            color: #fff;
+            background-color: #165dff; 
+        }
+
+        .nav-icon-placeholder {
+            width: 20px;
+            height: 20px;
+            background-color: #4e5969;
+            margin: 0 auto 5px;
+            border-radius: 2px;
+        }
+
+        .nav-item.erp {
+            margin-top: auto; 
+            background-color: #165dff;
+            color: #fff;
+        }
+
+        /* 右侧主内容容器 */
+        .main-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* 顶部导航栏 */
+        .top-header {
+            height: 35px;
+            background-color: #fff;
+            border-bottom: 1px solid #e5e6eb;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+        }
+
+        .header-tabs {
+            display: flex;
+            gap: 10px;
+        }
+
+        .tab {
+            padding: 5px 12px;
+            font-size: 13px;
+            color: #4e5969;
+            border-radius: 2px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .tab.active {
+            background-color: #f2f3f5;
+            color: #165dff;
+        }
+
+        .close-icon-placeholder {
+            width: 12px;
+            height: 12px;
+            background-color: #c9cdd4;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .status-pill {
+            padding: 4px 10px;
+            background-color: #165dff;
+            color: #fff;
+            border-radius: 12px;
+            font-size: 12px;
+        }
+
+        .user-avatar-placeholder {
+            width: 28px;
+            height: 28px;
+            background-color: #e5e6eb;
+            border-radius: 50%;
+        }
+
+        /* 主区域内容滚动容器 */
+        .content-scrollable {
+            flex: 1;
+            padding: 4px 16px 16px 16px;
+            overflow-y: auto; 
+        }
+
+        /* 页面标题行 */
+        .page-title-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-bottom: 4px;
+        }
+
+        .title-group {
+            display: flex;
+            align-items: center;
+        }
+
+        .title-group h2 {
+            font-size: 16px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 3px;
+        }
+
+        .subtitle {
+            font-size: 12px;
+            color: #86909c;
+            margin-left: 8px;
+        }
+
+        .update-time {
+            font-size: 12px;
+            color: #86909c;
+        }
+
+        /* 筛选器行 */
+        .filter-row {
+            display: flex;
+            gap: 2px;
+            margin-bottom: 4px;
+            flex-wrap: wrap;
+        }
+
+        .select-placeholder {
+            min-width: 120px;
+            height: 28px;
+            background-color: #fff;
+            border: 1px solid #e5e6eb;
+            border-radius: 2px;
+            padding: 0 5px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #1d2129;
+        }
+
+        .arrow-placeholder {
+            width: 10px;
+            height: 6px;
+            background-color: #c9cdd4;
+        }
+
+        /* 数据卡片 */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 6px;
+            margin-bottom: 4px;
+        }
+
+        .stat-card {
+            background-color: #fff;
+            padding: 16px;
+            padding-top: 4px;
+            border-radius: 2px;
+            border: 1px solid #e5e6eb;
+            height: 80px;
+        }
+
+        .stat-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            color: #4e5969;
+            margin-bottom: 2px;
+        }
+
+        .stat-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #1d2129;
+            margin-bottom: 2px;
+        }
+
+        .stat-footer {
+            font-size: 14px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .trend-up { color: #00b42a; }
+        .trend-down { color: #f53f3f; }
+
+        /* 表格控制栏 */
+        .table-toolbar {
+            background-color: #fff;
+            padding: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid #e5e6eb;
+            border-bottom: none;
+            height: 40px;
+        }
+
+        .toolbar-left {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .search-group {
+            display: flex;
+            border: 1px solid #e5e6eb;
+            height: 24px;
+            border-radius: 2px;
+            font-size: 10px;
+        }
+
+        .seg-control {
+            display: flex;
+            border: 1px solid #e5e6eb;
+            border-radius: 2px;
+            overflow: hidden;
+            padding-top: 0px;
+        }
+
+        .seg-btn {
+            padding: 0 12px;
+            height: 24px;
+            line-height: 24px; 
+            font-size: 10px;
+            background: #fff;
+            border-right: 1px solid #e5e6eb;
+        }
+
+        .seg-btn.active {
+            color: #165dff;
+            border: 1px solid #165dff;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* 数据表格 */
+        .table-container {
+            background-color: #fff;
+            border: 1px solid #e5e6eb;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+
+        th {
+            background-color: #f7f8fa; 
+            text-align: left;
+            padding: 6px 10px; 
+            border: 1px solid #e5e6eb; 
+            color: #4e5969;
+            font-weight: bold; 
+            position: sticky; 
+            top: 0; 
+            z-index: 10; 
+        }
+
+        td {
+            padding: 6px 10px; 
+            border: 1px solid #e5e6eb; 
+            vertical-align: middle;
+        }
+
+        .product-cell {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .action-link {
+            color: #165dff;
+            cursor: pointer;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="sidebar-logo"></div>
+        <div class="nav-item">
+            <div class="nav-icon-placeholder"></div>
+            首页
+        </div>
+        <div class="nav-item active">
+            <div class="nav-icon-placeholder" style="background-color:#fff;"></div>
+            销售
+        </div>
+        <div class="nav-item">
+            <div class="nav-icon-placeholder"></div>
+            广告
+        </div>
+        <div class="nav-item">
+            <div class="nav-icon-placeholder"></div>
+            FBA
+        </div>
+        <div class="nav-item">
+            <div class="nav-icon-placeholder"></div>
+            客服
+        </div>
+        <div class="nav-item">
+            <div class="nav-icon-placeholder"></div>
+            跟卖
+        </div>
+        <div class="nav-item erp">
+            <div class="nav-icon-placeholder" style="background-color:#fff;"></div>
+            ERP
+        </div>
+    </div>
+
+    <div class="main-container">
+        
+        <header class="top-header">
+            <div class="header-tabs">
+                <div class="tab active">
+                    即时销售报告
+                    <div class="close-icon-placeholder"></div>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="user-avatar-placeholder"></div>
+            </div>
+        </header>
+
+        <main class="content-scrollable">
+            
+            <div class="page-title-row">
+                <div class="title-group">
+                    <h2>
+                        即时销售报告
+                        <div style="width:16px;height:16px;background:#165dff;border-radius: 2px;display: inline-block;vertical-align: middle;"></div>
+                    </h2>
+                    <div class="subtitle">在售商品的即时销售情况，您可前往 实时大屏 查看排行。</div>
+                </div>
+                <div class="update-time">今天(截止至2026-05-13 14:49:30(中国UTC+8))</div>
+            </div>
+
+            <div class="filter-row">
+                <div class="select-placeholder">全部店铺 <div class="arrow-placeholder"></div></div>
+                <div class="select-placeholder">USD 美元($) <div class="arrow-placeholder"></div></div>
+                <div class="select-placeholder">全部配送方式 <div class="arrow-placeholder"></div></div>
+                <div class="select-placeholder">全部商品 <div class="arrow-placeholder"></div></div>
+                <div class="select-placeholder">全部分组 <div class="arrow-placeholder"></div></div>
+                <div class="select-placeholder">全部标签 <div class="arrow-placeholder"></div></div>
+                <div class="select-placeholder">全部运营人员 <div class="arrow-placeholder"></div></div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-header">订单量 </div>
+                    <div class="stat-value">2,195</div>
+                    <div class="stat-footer">
+                        <span>昨日累计 2,317</span>
+                        <span class="trend-down">↓ 5.02%</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-header">销量 </div>
+                    <div class="stat-value">2,395</div>
+                    <div class="stat-footer">
+                        <span>昨日累计 2,502</span>
+                        <span class="trend-down">↓ 4.05%</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-header">销售额 </div>
+                    <div class="stat-value">$38,719.37</div>
+                    <div class="stat-footer">
+                        <span>昨日累计 $40,336.29</span>
+                        <span class="trend-down">↓ 3.80%</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-header">订单金额 </div>
+                    <div class="stat-value">$40,107.21</div>
+                    <div class="stat-footer">
+                        <span>昨日累计 $43,064.13</span>
+                        <span class="trend-down">↓ 6.67%</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-header">平均每单销量 </div>
+                    <div class="stat-value">$40,107.21</div>
+                    <div class="stat-footer">
+                        <span>昨日累计 $43,064.13</span>
+                        <span class="trend-down">↓ 6.67%</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-header">平均每单净销售额 </div>
+                    <div class="stat-value">$40,107.21</div>
+                    <div class="stat-footer">
+                        <span>昨日累计 $43,064.13</span>
+                        <span class="trend-down">↓ 6.67%</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-toolbar">
+                <div class="toolbar-left">
+                    <div class="search-group">
+                        <div style="padding: 0 8px; border-right:1px solid #e5e6eb; line-height:22px; width:80px; box-sizing: border-box;">SKU</div>
+                        <div style="padding: 0 8px; color:#c9cdd4; line-height:22px; width:200px; box-sizing: border-box;">请输入关键词</div>
+                    </div>
+                    <div class="seg-control">
+                        <div class="seg-btn">父ASIN</div>
+                        <div class="seg-btn active">子ASIN</div>
+                        <div class="seg-btn">SKU</div>
+                    </div>
+                </div>
+                <div class="toolbar-right" style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #4e5969;">
+                    <span>共247条</span>
+                    
+                    <div style="display: flex; gap: 4px;">
+                        <div style="padding: 4px 8px; border: 1px solid #e5e6eb; border-radius: 2px; color: #86909c;">|&lt;</div>
+                        <div style="padding: 4px 8px; border: 1px solid #e5e6eb; border-radius: 2px; color: #86909c;">&lt;</div>
+                        <div style="padding: 4px 12px; border: 1px solid #e5e6eb; border-radius: 2px;">
+                            <span style="color: #165dff;">1</span> / 13
+                        </div>
+                        <div style="padding: 4px 8px; border: 1px solid #e5e6eb; border-radius: 2px; color: #86909c;">&gt;</div>
+                        <div style="padding: 4px 8px; border: 1px solid #e5e6eb; border-radius: 2px; color: #86909c;">&gt;|</div>
+                    </div>
+
+                    <div style="padding: 4px 8px; border: 1px solid #e5e6eb; border-radius: 2px; display: flex; align-items: center; gap: 4px;">
+                        20条/页 <span style="color: #86909c; font-size: 10px;">∨</span>
+                    </div>
+
+                    <div style="padding: 4px 12px; border: 1px solid #e5e6eb; border-radius: 2px;">
+                        表格配置
+                    </div>
+
+                    <div style="padding: 4px 12px; border: 1px solid #e5e6eb; border-radius: 2px; display: flex; align-items: center; gap: 6px;">
+                        <div style="width: 10px; height: 10px; border: 1px solid #86909c; border-top: none; border-right: none; position: relative;">
+                            <div style="position: absolute; top: -4px; right: -4px; width: 4px; height: 4px; border-top: 1px solid #86909c; border-right: 1px solid #86909c;"></div>
+                        </div> 
+                        全屏
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>商品名称</th>
+                            <th>产品图</th>  
+                            <th>父ASIN</th>
+                            <th>子ASIN</th>
+                            <th>MSKU</th>
+                            <th>目标销量</th>
+                            <th>今日销量</th>
+                            <th>环比昨日</th>
+                            <th>今日销售额</th>
+                            <th>今日单价</th>
+                            <th>昨日销量</th>
+                            <th>昨日销售额</th>
+                            <th>昨日单价</th>
+                            <th>上周同日销量</th>
+                            <th>可售</th>
+                            <th>可售天数</th>
+                            <th>大类排名</th>
+                            <th>小型排名</th>
+                            <th>销量趋势</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            fetchSalesData();
+        });
+
+        async function fetchSalesData() {
+            try {
+                const response = await fetch('http://127.0.0.1:5000/api/sales');
+                const result = await response.json();
+
+                if (result.status === 'success') {
+                    renderTable(result.data);
+                } else {
+                    console.error("从中转站抓取飞书数据失败:", result);
+                }
+            } catch (error) {
+                console.error("无法连接服务器，请确认 PyCharm 中的 main.py 是否在正常运行中:", error);
+            }
+        }
+
+        function renderTable(records) {
+            const tbody = document.querySelector('tbody');
+            tbody.innerHTML = ''; 
+
+            records.forEach(record => {
+                const fields = record.fields;
+                if (Object.keys(fields).length === 0) return;
+
+                // 1. 【核心变动点】提取飞书原装自带完整校验的安全 URL，不走猜测路由
+                let imgHtml = '<div style="width:25px; height:25px; background-color:#f2f3f5; border-radius:2px;"></div>';
+                if (fields['产品图'] && fields['产品图'].length > 0) {
+                    const rawFeishuImgUrl = fields['产品图'][0].url; // 👈 提取原始完整链接
+                    // 使用 encodeURIComponent 整体打包成参数送进 Python
+                    imgHtml = `<img src="http://127.0.0.1:5000/api/image?url=${encodeURIComponent(rawFeishuImgUrl)}" style="width:25px; height:25px; object-fit:cover; border-radius:2px; display:block;">`;
+                }
+
+                // 2. 处理环比涨跌颜色与百分比格式
+                let trendClass = '';
+                let trendText = '-';
+                if (fields['环比昨日'] !== undefined) {
+                    const num = parseFloat(fields['环比昨日']);
+                    const percentage = (Math.abs(num) * 100).toFixed(2) + '%';
+                    
+                    if (num > 0) {
+                        trendClass = 'trend-up';
+                        trendText = '+' + percentage;
+                    } else if (num < 0) {
+                        trendClass = 'trend-down';
+                        trendText = '-' + percentage;
+                    } else {
+                        trendText = percentage;
+                    }
+                }
+
+                // 3. 动态构建并装配数据行
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${fields['产品名称'] || '-'}</td>
+                    <td>${imgHtml}</td>
+                    <td>${fields['父ASIN'] || '-'}</td>
+                    <td>${fields['子ASIN'] || '-'}</td>
+                    <td>${fields['MSKU'] || '-'}</td>
+                    <td>${fields['目标销量'] || '-'}</td>
+                    <td>${fields['今日销量'] || '-'}</td>
+                    <td class="${trendClass}">${trendText}</td>
+                    <td>$${fields['今日销售额'] || '-'}</td>
+                    <td>$${fields['今日单价'] || '-'}</td>
+                    <td>${fields['昨日销量'] || '-'}</td>
+                    <td>$${fields['昨日销售额'] || '-'}</td>
+                    <td>$${fields['昨日单价'] || '-'}</td>
+                    <td>${fields['上周同日销量'] || '-'}</td>
+                    <td>${fields['可售'] || '-'}</td>
+                    <td>${fields['可售天数'] || '-'}</td>
+                    <td>${fields['大类排名'] || '-'}</td>
+                    <td>${fields['小型排名'] || '-'}</td>
+                    <td></td>
+                    <td class="action-link">详情</td>
+                `;
+                
+                tbody.appendChild(tr);
+            });
+        }
+    </script>
+</body>
+</html>
