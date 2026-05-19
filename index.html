@@ -565,7 +565,7 @@
                 if (fields['产品图'] && fields['产品图'].length > 0) {
                     const rawFeishuImgUrl = fields['产品图'][0].url; // 👈 提取原始完整链接
                     // 使用 encodeURIComponent 整体打包成参数送进 Python
-                    imgHtml = `<img src="http://127.0.0.1:5000/api/image?url=${encodeURIComponent(rawFeishuImgUrl)}" style="width:25px; height:25px; object-fit:cover; border-radius:2px; display:block;">`;
+                    imgHtml = `<img src="http://121.40.126.178:5000/api/image?url=${encodeURIComponent(rawFeishuImgUrl)}" style="width:25px; height:25px; object-fit:cover; border-radius:2px; display:block;">`;
                 }
 
                 // 2. 处理环比涨跌颜色与百分比格式
