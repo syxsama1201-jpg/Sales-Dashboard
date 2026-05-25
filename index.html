@@ -119,14 +119,6 @@
             gap: 15px;
         }
 
-        .status-pill {
-            padding: 4px 10px;
-            background-color: #165dff;
-            color: #fff;
-            border-radius: 12px;
-            font-size: 12px;
-        }
-
         .user-avatar-placeholder {
             width: 28px;
             height: 28px;
@@ -138,6 +130,8 @@
         .content-scrollable {
             flex: 1;
             padding: 4px 16px 16px 16px;
+            display: flex;
+            flex-direction: column;
             overflow-y: auto; 
         }
 
@@ -234,13 +228,15 @@
         }
 
         .stat-footer {
-            font-size: 14px;
+            font-size: 12px;
             display: flex;
             justify-content: space-between;
         }
 
-        .trend-up { color: #00b42a; }
-        .trend-down { color: #f53f3f; }
+        /* 还原：绿升红降 (国际标准) */
+        .trend-up { color: #00b42a; font-weight: 500; }
+        .trend-down { color: #f53f3f; font-weight: 500; }
+        .trend-none { color: #86909c; }
 
         /* 表格控制栏 */
         .table-toolbar {
@@ -266,6 +262,12 @@
             height: 24px;
             border-radius: 2px;
             font-size: 10px;
+            background: #fff;
+        }
+
+        /* 搜索输入框取消默认外边框 */
+        .search-group input:focus {
+            outline: none;
         }
 
         .seg-control {
@@ -296,6 +298,7 @@
         .table-container {
             background-color: #fff;
             border: 1px solid #e5e6eb;
+            overflow: auto;
         }
 
         table {
@@ -314,24 +317,73 @@
             position: sticky; 
             top: 0; 
             z-index: 10; 
+            white-space: nowrap;
         }
 
         td {
             padding: 6px 10px; 
             border: 1px solid #e5e6eb; 
             vertical-align: middle;
+            word-break: break-all;
+        }
+        .col-core1-id {
+            width: 180px;            /* 绝对宽度控制，请根据你的实际需求修改数值 */
+            min-width: 180px;        /* 设置最小宽度，防止表格缩放时被其他列挤压 */
+            max-width: 180px;        /* 设置最大宽度，配合下方代码实现超出截断 */
+            white-space: nowrap;     /* 强制内容在一行显示，绝不换行 */
+            overflow: hidden;        /* 超出设定的 120px 宽度的内容直接隐藏 */
+            text-overflow: ellipsis; /* 隐藏的部分使用省略号(...)代替 */
         }
 
-        .product-cell {
-            display: flex;
-            gap: 8px;
-            align-items: center;
+        .col-core2-id {
+            width: 110px;            /* 绝对宽度控制，请根据你的实际需求修改数值 */
+            min-width: 110px;        /* 设置最小宽度，防止表格缩放时被其他列挤压 */
+            max-width: 110px;        /* 设置最大宽度，配合下方代码实现超出截断 */
+            white-space: nowrap;     /* 强制内容在一行显示，绝不换行 */
+            overflow: hidden;        /* 超出设定的 120px 宽度的内容直接隐藏 */
+            text-overflow: ellipsis; /* 隐藏的部分使用省略号(...)代替 */
+        }
+
+        .col-core3-id {
+            width: 80px;            /* 绝对宽度控制，请根据你的实际需求修改数值 */
+            min-width: 80px;        /* 设置最小宽度，防止表格缩放时被其他列挤压 */
+            max-width: 80px;        /* 设置最大宽度，配合下方代码实现超出截断 */
+            white-space: nowrap;     /* 强制内容在一行显示，绝不换行 */
+            overflow: hidden;        /* 超出设定的 120px 宽度的内容直接隐藏 */
+            text-overflow: ellipsis; /* 隐藏的部分使用省略号(...)代替 */
+        }
+
+        .col-core4-id {
+            width: 150px;            /* 绝对宽度控制，请根据你的实际需求修改数值 */
+            min-width: 150px;        /* 设置最小宽度，防止表格缩放时被其他列挤压 */
+            max-width: 150px;        /* 设置最大宽度，配合下方代码实现超出截断 */
+            white-space: nowrap;     /* 强制内容在一行显示，绝不换行 */
+            overflow: hidden;        /* 超出设定的 120px 宽度的内容直接隐藏 */
+            text-overflow: ellipsis; /* 隐藏的部分使用省略号(...)代替 */
         }
 
         .action-link {
             color: #165dff;
             cursor: pointer;
         }
+
+        .sortable {
+            cursor: pointer;
+            user-select: none;
+            transition: background-color 0.2s;
+        }
+        .sortable:hover {
+            background-color: #e5e6eb;
+        }
+        .sort-icon {
+            display: inline-block;
+            margin-left: 4px;
+            font-size: 10px;
+            color: #c9cdd4;
+        }
+        .sort-asc::after { content: '↑'; color: #165dff; }
+        .sort-desc::after { content: '↓'; color: #165dff; }
+        .sort-none::after { content: '↕'; }
 
     </style>
 </head>
@@ -340,43 +392,32 @@
     <div class="sidebar">
         <div class="sidebar-logo"></div>
         <div class="nav-item">
-            <div class="nav-icon-placeholder"></div>
-            首页
+            <div class="nav-icon-placeholder"></div>首页
         </div>
         <div class="nav-item active">
-            <div class="nav-icon-placeholder" style="background-color:#fff;"></div>
-            销售
+            <div class="nav-icon-placeholder" style="background-color:#fff;"></div>销售
         </div>
         <div class="nav-item">
-            <div class="nav-icon-placeholder"></div>
-            广告
+            <div class="nav-icon-placeholder"></div>广告
         </div>
         <div class="nav-item">
-            <div class="nav-icon-placeholder"></div>
-            FBA
+            <div class="nav-icon-placeholder"></div>FBA
         </div>
         <div class="nav-item">
-            <div class="nav-icon-placeholder"></div>
-            客服
+            <div class="nav-icon-placeholder"></div>客服
         </div>
         <div class="nav-item">
-            <div class="nav-icon-placeholder"></div>
-            跟卖
+            <div class="nav-icon-placeholder"></div>跟卖
         </div>
         <div class="nav-item erp">
-            <div class="nav-icon-placeholder" style="background-color:#fff;"></div>
-            ERP
+            <div class="nav-icon-placeholder" style="background-color:#fff;"></div>ERP
         </div>
     </div>
 
     <div class="main-container">
-        
         <header class="top-header">
             <div class="header-tabs">
-                <div class="tab active">
-                    即时销售报告
-                    <div class="close-icon-placeholder"></div>
-                </div>
+                <div class="tab active">即时销售报告<div class="close-icon-placeholder"></div></div>
             </div>
             <div class="header-right">
                 <div class="user-avatar-placeholder"></div>
@@ -384,84 +425,58 @@
         </header>
 
         <main class="content-scrollable">
-            
             <div class="page-title-row">
                 <div class="title-group">
-                    <h2>
-                        即时销售报告
-                        <div style="width:16px;height:16px;background:#165dff;border-radius: 2px;display: inline-block;vertical-align: middle;"></div>
-                    </h2>
-                    <div class="subtitle">在售商品的即时销售情况，您可前往 实时大屏 查看排行。</div>
+                    <h2>即时销售报告<div style="width:16px;height:16px;background:#165dff;border-radius: 2px;display: inline-block;vertical-align: middle;"></div></h2>
+                    <div class="update-time" style="margin-left: 60px;">更新时间
+	        <span id="target-time"></span>
+	    </div>
                 </div>
-                <div class="update-time">今天(截止至2026-05-13 14:49:30(中国UTC+8))</div>
             </div>
 
             <div class="filter-row">
                 <div class="select-placeholder">全部店铺 <div class="arrow-placeholder"></div></div>
                 <div class="select-placeholder">USD 美元($) <div class="arrow-placeholder"></div></div>
-                <div class="select-placeholder">全部配送方式 <div class="arrow-placeholder"></div></div>
-                <div class="select-placeholder">全部商品 <div class="arrow-placeholder"></div></div>
-                <div class="select-placeholder">全部分组 <div class="arrow-placeholder"></div></div>
-                <div class="select-placeholder">全部标签 <div class="arrow-placeholder"></div></div>
-                <div class="select-placeholder">全部运营人员 <div class="arrow-placeholder"></div></div>
             </div>
 
             <div class="stats-grid">
                 <div class="stat-card">
                     <div class="stat-header">订单量 </div>
-                    <div class="stat-value">2,195</div>
-                    <div class="stat-footer">
-                        <span>昨日累计 2,317</span>
-                        <span class="trend-down">↓ 5.02%</span>
-                    </div>
+                    <div class="stat-value" id="card-orders-today">--</div>
+                    <div class="stat-footer" id="card-orders-footer"><span>昨日累计 --</span><span class="trend-none">--</span></div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-header">销量 </div>
-                    <div class="stat-value">2,395</div>
-                    <div class="stat-footer">
-                        <span>昨日累计 2,502</span>
-                        <span class="trend-down">↓ 4.05%</span>
-                    </div>
+                    <div class="stat-value" id="card-qty-today">0</div>
+                    <div class="stat-footer" id="card-qty-footer"><span>昨日累计 0</span><span>0.00%</span></div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-header">销售额 </div>
-                    <div class="stat-value">$38,719.37</div>
-                    <div class="stat-footer">
-                        <span>昨日累计 $40,336.29</span>
-                        <span class="trend-down">↓ 3.80%</span>
-                    </div>
+                    <div class="stat-value" id="card-sales-today">$0.00</div>
+                    <div class="stat-footer" id="card-sales-footer"><span>昨日累计 $0.00</span><span>0.00%</span></div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-header">订单金额 </div>
-                    <div class="stat-value">$40,107.21</div>
-                    <div class="stat-footer">
-                        <span>昨日累计 $43,064.13</span>
-                        <span class="trend-down">↓ 6.67%</span>
-                    </div>
+                    <div class="stat-value" id="card-amount-today">$0.00</div>
+                    <div class="stat-footer" id="card-amount-footer"><span>昨日累计 $0.00</span><span>0.00%</span></div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-header">平均每单销量 </div>
-                    <div class="stat-value">$40,107.21</div>
-                    <div class="stat-footer">
-                        <span>昨日累计 $43,064.13</span>
-                        <span class="trend-down">↓ 6.67%</span>
-                    </div>
+                    <div class="stat-value" id="card-avgqty-today">--</div>
+                    <div class="stat-footer" id="card-avgqty-footer"><span>昨日累计 --</span><span class="trend-none">--</span></div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-header">平均每单净销售额 </div>
-                    <div class="stat-value">$40,107.21</div>
-                    <div class="stat-footer">
-                        <span>昨日累计 $43,064.13</span>
-                        <span class="trend-down">↓ 6.67%</span>
-                    </div>
+                    <div class="stat-value" id="card-avgprice-today">$0.00</div>
+                    <div class="stat-footer" id="card-avgprice-footer"><span>昨日累计 $0.00</span><span>0.00%</span></div>
                 </div>
             </div>
 
             <div class="table-toolbar">
                 <div class="toolbar-left">
                     <div class="search-group">
-                        <div style="padding: 0 8px; border-right:1px solid #e5e6eb; line-height:22px; width:80px; box-sizing: border-box;">SKU</div>
-                        <div style="padding: 0 8px; color:#c9cdd4; line-height:22px; width:200px; box-sizing: border-box;">请输入关键词</div>
+                        <div style="padding: 0 8px; border-right:1px solid #e5e6eb; line-height:22px; width:80px; box-sizing: border-box; text-align: center; color: #4e5969;">ASIN</div>
+                        <input type="text" id="searchInput" placeholder="请输入关键词" oninput="handleSearch(event)" style="padding: 0 8px; border:none; line-height:22px; width:200px; box-sizing: border-box; font-size:10px; color: #1d2129;">
                     </div>
                     <div class="seg-control">
                         <div class="seg-btn">父ASIN</div>
@@ -470,32 +485,7 @@
                     </div>
                 </div>
                 <div class="toolbar-right" style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #4e5969;">
-                    <span>共247条</span>
-                    
-                    <div style="display: flex; gap: 4px;">
-                        <div style="padding: 4px 8px; border: 1px solid #e5e6eb; border-radius: 2px; color: #86909c;">|&lt;</div>
-                        <div style="padding: 4px 8px; border: 1px solid #e5e6eb; border-radius: 2px; color: #86909c;">&lt;</div>
-                        <div style="padding: 4px 12px; border: 1px solid #e5e6eb; border-radius: 2px;">
-                            <span style="color: #165dff;">1</span> / 13
-                        </div>
-                        <div style="padding: 4px 8px; border: 1px solid #e5e6eb; border-radius: 2px; color: #86909c;">&gt;</div>
-                        <div style="padding: 4px 8px; border: 1px solid #e5e6eb; border-radius: 2px; color: #86909c;">&gt;|</div>
-                    </div>
-
-                    <div style="padding: 4px 8px; border: 1px solid #e5e6eb; border-radius: 2px; display: flex; align-items: center; gap: 4px;">
-                        20条/页 <span style="color: #86909c; font-size: 10px;">∨</span>
-                    </div>
-
-                    <div style="padding: 4px 12px; border: 1px solid #e5e6eb; border-radius: 2px;">
-                        表格配置
-                    </div>
-
-                    <div style="padding: 4px 12px; border: 1px solid #e5e6eb; border-radius: 2px; display: flex; align-items: center; gap: 6px;">
-                        <div style="width: 10px; height: 10px; border: 1px solid #86909c; border-top: none; border-right: none; position: relative;">
-                            <div style="position: absolute; top: -4px; right: -4px; width: 4px; height: 4px; border-top: 1px solid #86909c; border-right: 1px solid #86909c;"></div>
-                        </div> 
-                        全屏
-                    </div>
+                    <span id="toolbar-total-count">共 0 条</span>
                 </div>
             </div>
 
@@ -503,25 +493,24 @@
                 <table>
                     <thead>
                         <tr>
-                            <th>商品名称</th>
+                            <th class="col-core1-id">商品名称</th>
                             <th>产品图</th>  
-                            <th>父ASIN</th>
-                            <th>子ASIN</th>
-                            <th>MSKU</th>
+                            <th class="col-core2-id">父ASIN</th>
+                            <th class="col-core2-id">子ASIN</th>
+                            <th class="col-core2-id">MSKU</th>
                             <th>目标销量</th>
-                            <th>今日销量</th>
-                            <th>环比昨日</th>
-                            <th>今日销售额</th>
+                            <th class="sortable" onclick="handleSort('今日销量')">今日销量 <span id="sort-icon-今日销量" class="sort-icon sort-none"></span></th>
+                            <th class="col-core3-id">环比昨日</th>
+                            <th class="sortable" onclick="handleSort('今日销售额')">今日销售额 <span id="sort-icon-今日销售额" class="sort-icon sort-none"></span></th>
                             <th>今日单价</th>
-                            <th>昨日销量</th>
-                            <th>昨日销售额</th>
+                            <th class="sortable" onclick="handleSort('昨日销量')">昨日销量 <span id="sort-icon-昨日销量" class="sort-icon sort-none"></span></th>
+                            <th class="sortable" onclick="handleSort('昨日销售额')">昨日销售额 <span id="sort-icon-昨日销售额" class="sort-icon sort-none"></span></th>
                             <th>昨日单价</th>
                             <th>上周同日销量</th>
-                            <th>可售</th>
-                            <th>可售天数</th>
-                            <th>大类排名</th>
-                            <th>小型排名</th>
-                            <th>销量趋势</th>
+                            <th class="sortable" onclick="handleSort('可售库存')">可售库存 <span id="sort-icon-可售库存" class="sort-icon sort-none"></span></th>
+                            <th class="sortable" onclick="handleSort('可售天数')">可售天数 <span id="sort-icon-可售天数" class="sort-icon sort-none"></span></th>
+                            <th class="col-core4-id">大类排名</th>
+                            <th class="col-core4-id">小类排名</th>
                             <th>操作</th>
                         </tr>
                     </thead>
@@ -533,6 +522,54 @@
     </div>
 
     <script>
+         // 格式化时间为 YYYY-MM-DD HH:mm
+        function formatDate(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            
+            return `${year}-${month}-${day} ${hours}:${minutes}`;
+        }
+
+        // 计算符合逻辑的目标时间
+        function getCalculatedTime() {
+            const now = new Date();
+            const currentMinutes = now.getMinutes();
+
+            // 如果当前分钟数小于10，则将小时减1
+            if (currentMinutes < 10) {
+                // setHours 会自动处理跨天、跨月、跨年的时间退位运算，例如 00:05 会退回前一天的 23:10
+                now.setHours(now.getHours() - 1);
+            }
+
+            // 无论如何，最终分钟数固定设为10
+            now.setMinutes(10);
+            
+            return formatDate(now);
+        }
+
+        // 初始化并启动定时器
+        function startTimeDisplay() {
+            const timeElement = document.getElementById('target-time');
+            
+            // 首次执行，避免页面加载时出现空白
+            timeElement.textContent = getCalculatedTime();
+
+            // 每秒检查并更新一次页面，确保时间跨过整点10分时能实时切换
+            setInterval(() => {
+                timeElement.textContent = getCalculatedTime();
+            },10000);
+        }
+
+        // 页面加载完成后运行
+        window.onload = startTimeDisplay;
+
+        let globalRecords = []; 
+        let currentSort = { key: null, direction: 'none' }; 
+        let currentSearchTerm = ''; // 全局记录当前搜索词
+
         document.addEventListener('DOMContentLoaded', function() {
             fetchSalesData();
         });
@@ -543,13 +580,111 @@
                 const result = await response.json();
 
                 if (result.status === 'success') {
-                    renderTable(result.data);
+                    globalRecords = result.data;
+                    calculateAndRenderCards(globalRecords);
+                    // 默认首次加载触发“今日销量”降序排列
+                    handleSort('今日销量'); 
                 } else {
-                    console.error("从中转站抓取飞书数据失败:", result);
+                    console.error("从中转站抓取数据失败:", result);
                 }
             } catch (error) {
-                console.error("无法连接服务器，请确认 PyCharm 中的 main.py 是否在正常运行中:", error);
+                console.error("无法连接服务器:", error);
             }
+        }
+
+        function calculateAndRenderCards(records) {
+            let totalQtyToday = 0, totalQtyYesterday = 0;
+            let totalSalesToday = 0, totalSalesYesterday = 0;
+
+            records.forEach(record => {
+                const fields = record.fields;
+                if (!fields || Object.keys(fields).length === 0) return;
+                totalQtyToday += parseInt(fields['今日销量']) || 0;
+                totalQtyYesterday += parseInt(fields['昨日销量']) || 0;
+                totalSalesToday += parseFloat(fields['今日销售额']) || 0;
+                totalSalesYesterday += parseFloat(fields['昨日销售额']) || 0;
+            });
+
+            function formatTrendHtml(todayVal, yesterdayVal) {
+                if (!yesterdayVal || yesterdayVal === 0) {
+                    return todayVal > 0 ? `<span class="trend-up">↑ 100.00%</span>` : `<span class="trend-none">0.00%</span>`;
+                }
+                const changeRate = ((todayVal - yesterdayVal) / yesterdayVal) * 100;
+                if (changeRate > 0) return `<span class="trend-up">↑ ${changeRate.toFixed(2)}%</span>`; 
+                if (changeRate < 0) return `<span class="trend-down">↓ ${Math.abs(changeRate).toFixed(2)}%</span>`; 
+                return `<span class="trend-none">0.00%</span>`;
+            }
+
+            document.getElementById('card-qty-today').innerText = totalQtyToday.toLocaleString();
+            document.getElementById('card-qty-footer').innerHTML = `<span>昨日累计 ${totalQtyYesterday.toLocaleString()}</span>${formatTrendHtml(totalQtyToday, totalQtyYesterday)}`;
+
+            document.getElementById('card-sales-today').innerText = `$${totalSalesToday.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            document.getElementById('card-sales-footer').innerHTML = `<span>昨日累计 $${totalSalesYesterday.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>${formatTrendHtml(totalSalesToday, totalSalesYesterday)}`;
+
+            document.getElementById('card-amount-today').innerText = `$${totalSalesToday.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            document.getElementById('card-amount-footer').innerHTML = `<span>昨日累计 $${totalSalesYesterday.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>${formatTrendHtml(totalSalesToday, totalSalesYesterday)}`;
+
+            const avgPriceToday = totalQtyToday > 0 ? (totalSalesToday / totalQtyToday) : 0;
+            const avgPriceYesterday = totalQtyYesterday > 0 ? (totalSalesYesterday / totalQtyYesterday) : 0;
+            document.getElementById('card-avgprice-today').innerText = `$${avgPriceToday.toFixed(2)}`;
+            document.getElementById('card-avgprice-footer').innerHTML = `<span>昨日累计 $${avgPriceYesterday.toFixed(2)}</span>${formatTrendHtml(avgPriceToday, avgPriceYesterday)}`;
+        }
+
+        // 监听搜索输入动作
+        function handleSearch(event) {
+            currentSearchTerm = event.target.value.trim().toLowerCase();
+            applyFilterAndSort();
+        }
+
+        // 监听表头点击动作
+        function handleSort(key) {
+            if (currentSort.key === key) {
+                if (currentSort.direction === 'none') currentSort.direction = 'desc';
+                else if (currentSort.direction === 'desc') currentSort.direction = 'asc';
+                else currentSort.direction = 'none';
+            } else {
+                currentSort.key = key;
+                currentSort.direction = 'desc'; 
+            }
+
+            document.querySelectorAll('.sort-icon').forEach(icon => {
+                icon.className = 'sort-icon sort-none'; 
+            });
+            const activeIcon = document.getElementById(`sort-icon-${key}`);
+            if (currentSort.direction === 'desc') activeIcon.className = 'sort-icon sort-desc';
+            if (currentSort.direction === 'asc') activeIcon.className = 'sort-icon sort-asc';
+
+            applyFilterAndSort();
+        }
+
+        // 核心合并引擎：同时应用搜索词和排序状态
+        function applyFilterAndSort() {
+            let processedRecords = [...globalRecords];
+
+            // 1. 先过滤 (全局模糊匹配 父ASIN 或 子ASIN)
+            if (currentSearchTerm) {
+                processedRecords = processedRecords.filter(record => {
+                    const fAsin = (record.fields['父ASIN'] || '').toLowerCase();
+                    const cAsin = (record.fields['子ASIN'] || '').toLowerCase();
+                    return fAsin.includes(currentSearchTerm) || cAsin.includes(currentSearchTerm);
+                });
+            }
+
+            // 2. 后排序
+            if (currentSort.direction !== 'none' && currentSort.key) {
+                processedRecords.sort((a, b) => {
+                    let valA = parseFloat(a.fields[currentSort.key]) || 0;
+                    let valB = parseFloat(b.fields[currentSort.key]) || 0;
+
+                    if (valA < valB) return currentSort.direction === 'asc' ? -1 : 1;
+                    if (valA > valB) return currentSort.direction === 'asc' ? 1 : -1;
+                    return 0;
+                });
+            }
+
+            // 3. 渲染并更新条数
+            renderTable(processedRecords);
+            document.getElementById('toolbar-total-count').innerText = `共 ${processedRecords.length} 条`;
         }
 
         function renderTable(records) {
@@ -560,33 +695,21 @@
                 const fields = record.fields;
                 if (Object.keys(fields).length === 0) return;
 
-                // 1. 【核心变动点】提取飞书原装自带完整校验的安全 URL，不走猜测路由
                 let imgHtml = '<div style="width:25px; height:25px; background-color:#f2f3f5; border-radius:2px;"></div>';
                 if (fields['产品图'] && fields['产品图'].length > 0) {
-                    const rawFeishuImgUrl = fields['产品图'][0].url; // 👈 提取原始完整链接
-                    // 使用 encodeURIComponent 整体打包成参数送进 Python
+                    const rawFeishuImgUrl = fields['产品图'][0].url; 
                     imgHtml = `<img src="http://121.40.126.178:5000/api/image?url=${encodeURIComponent(rawFeishuImgUrl)}" style="width:25px; height:25px; object-fit:cover; border-radius:2px; display:block;">`;
                 }
 
-                // 2. 处理环比涨跌颜色与百分比格式
-                let trendClass = '';
-                let trendText = '-';
-                if (fields['环比昨日'] !== undefined) {
+                let trendClass = '', trendText = '-';
+                if (fields['环比昨日'] !== undefined && fields['环比昨日'] !== '') {
                     const num = parseFloat(fields['环比昨日']);
                     const percentage = (Math.abs(num) * 100).toFixed(2) + '%';
-                    
-                    if (num > 0) {
-                        trendClass = 'trend-up';
-                        trendText = '+' + percentage;
-                    } else if (num < 0) {
-                        trendClass = 'trend-down';
-                        trendText = '-' + percentage;
-                    } else {
-                        trendText = percentage;
-                    }
+                    if (num > 0) { trendClass = 'trend-up'; trendText = '+' + percentage; }
+                    else if (num < 0) { trendClass = 'trend-down'; trendText = '-' + percentage; }
+                    else { trendText = percentage; }
                 }
 
-                // 3. 动态构建并装配数据行
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td>${fields['产品名称'] || '-'}</td>
@@ -595,22 +718,20 @@
                     <td>${fields['子ASIN'] || '-'}</td>
                     <td>${fields['MSKU'] || '-'}</td>
                     <td>${fields['目标销量'] || '-'}</td>
-                    <td>${fields['今日销量'] || '-'}</td>
+                    <td>${fields['今日销量'] || '0'}</td>
                     <td class="${trendClass}">${trendText}</td>
-                    <td>$${fields['今日销售额'] || '-'}</td>
-                    <td>$${fields['今日单价'] || '-'}</td>
-                    <td>${fields['昨日销量'] || '-'}</td>
-                    <td>$${fields['昨日销售额'] || '-'}</td>
-                    <td>$${fields['昨日单价'] || '-'}</td>
+                    <td>$${fields['今日销售额'] !== undefined && fields['今日销售额'] !== '' ? parseFloat(fields['今日销售额']).toFixed(2) : '0.00'}</td>
+                    <td>$${fields['今日单价'] !== undefined && fields['今日单价'] !== '' ? parseFloat(fields['今日单价']).toFixed(2) : '0.00'}</td>
+                    <td>${fields['昨日销量'] || '0'}</td>
+                    <td>$${fields['昨日销售额'] !== undefined && fields['昨日销售额'] !== '' ? parseFloat(fields['昨日销售额']).toFixed(2) : '0.00'}</td>
+                    <td>$${fields['昨日单价'] !== undefined && fields['昨日单价'] !== '' ? parseFloat(fields['昨日单价']).toFixed(2) : '0.00'}</td>
                     <td>${fields['上周同日销量'] || '-'}</td>
-                    <td>${fields['可售'] || '-'}</td>
-                    <td>${fields['可售天数'] || '-'}</td>
+                    <td>${fields['可售库存'] || '0'}</td>
+                    <td>${fields['可售天数'] || '0'}</td>
                     <td>${fields['大类排名'] || '-'}</td>
-                    <td>${fields['小型排名'] || '-'}</td>
-                    <td></td>
+                    <td>${fields['小类排名'] || '-'}</td>
                     <td class="action-link">详情</td>
                 `;
-                
                 tbody.appendChild(tr);
             });
         }
