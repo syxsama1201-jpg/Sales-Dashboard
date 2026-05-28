@@ -6,385 +6,100 @@
     <title>即时销售报告 - 控制面板</title>
     <style>
         /* 基础样式复位 */
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-        }
-
-        body {
-            background-color: #f2f3f5; 
-            display: flex;
-            height: 100vh;
-            overflow: hidden;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+        body { background-color: #f2f3f5; display: flex; height: 100vh; overflow: hidden; }
 
         /* 侧边栏样式 */
-        .sidebar {
-            width: 40px;
-            background-color: #1d232d; 
-            color: #fff;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 15px 0;
-            flex-shrink: 0;
-        }
-
-        .sidebar-logo {
-            width: 30px;
-            height: 30px;
-            background-color: #fff; 
-            margin-bottom: 20px;
-            border-radius: 4px;
-        }
-
-        .nav-item {
-            width: 100%;
-            padding: 12px 0;
-            text-align: center;
-            font-size: 12px;
-            color: #a9adb2;
-            cursor: pointer;
-        }
-
-        .nav-item.active {
-            color: #fff;
-            background-color: #165dff; 
-        }
-
-        .nav-icon-placeholder {
-            width: 20px;
-            height: 20px;
-            background-color: #4e5969;
-            margin: 0 auto 5px;
-            border-radius: 2px;
-        }
-
-        .nav-item.erp {
-            margin-top: auto; 
-            background-color: #165dff;
-            color: #fff;
-        }
+        .sidebar { width: 40px; background-color: #1d232d; color: #fff; display: flex; flex-direction: column; align-items: center; padding: 15px 0; flex-shrink: 0; }
+        .sidebar-logo { width: 30px; height: 30px; background-color: #fff; margin-bottom: 20px; border-radius: 4px; }
+        .nav-item { width: 100%; padding: 12px 0; text-align: center; font-size: 12px; color: #a9adb2; cursor: pointer; }
+        .nav-item.active { color: #fff; background-color: #165dff; }
+        .nav-icon-placeholder { width: 20px; height: 20px; background-color: #4e5969; margin: 0 auto 5px; border-radius: 2px; }
+        .nav-item.erp { margin-top: auto; background-color: #165dff; color: #fff; }
 
         /* 右侧主内容容器 */
-        .main-container {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-
-        /* 顶部导航栏 */
-        .top-header {
-            height: 35px;
-            background-color: #fff;
-            border-bottom: 1px solid #e5e6eb;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 20px;
-        }
-
-        .header-tabs {
-            display: flex;
-            gap: 10px;
-        }
-
-        .tab {
-            padding: 5px 12px;
-            font-size: 13px;
-            color: #4e5969;
-            border-radius: 2px;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-
-        .tab.active {
-            background-color: #f2f3f5;
-            color: #165dff;
-        }
-
-        .close-icon-placeholder {
-            width: 12px;
-            height: 12px;
-            background-color: #c9cdd4;
-        }
-
-        .header-right {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-
-        .user-avatar-placeholder {
-            width: 28px;
-            height: 28px;
-            background-color: #e5e6eb;
-            border-radius: 50%;
-        }
+        .main-container { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .top-header { height: 35px; background-color: #fff; border-bottom: 1px solid #e5e6eb; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; }
+        .header-tabs { display: flex; gap: 10px; }
+        .tab { padding: 5px 12px; font-size: 13px; color: #4e5969; border-radius: 2px; display: flex; align-items: center; gap: 5px; }
+        .tab.active { background-color: #f2f3f5; color: #165dff; }
+        .close-icon-placeholder { width: 12px; height: 12px; background-color: #c9cdd4; }
+        .header-right { display: flex; align-items: center; gap: 15px; }
+        .user-avatar-placeholder { width: 28px; height: 28px; background-color: #e5e6eb; border-radius: 50%; }
 
         /* 主区域内容滚动容器 */
-        .content-scrollable {
-            flex: 1;
-            padding: 4px 16px 16px 16px;
-            display: flex;
-            flex-direction: column;
-            overflow-y: auto; 
-        }
-
-        /* 页面标题行 */
-        .page-title-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-end;
-            margin-bottom: 4px;
-        }
-
-        .title-group {
-            display: flex;
-            align-items: center;
-        }
-
-        .title-group h2 {
-            font-size: 16px;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 3px;
-        }
-
-        .subtitle {
-            font-size: 12px;
-            color: #86909c;
-            margin-left: 8px;
-        }
-
-        .update-time {
-            font-size: 12px;
-            color: #86909c;
-        }
+        .content-scrollable { flex: 1; padding: 4px 16px 16px 16px; display: flex; flex-direction: column; overflow-y: auto; }
+        .page-title-row { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 4px; }
+        .title-group { display: flex; align-items: center; }
+        .title-group h2 { font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 3px; }
+        .update-time { font-size: 12px; color: #86909c; }
 
         /* 筛选器行 */
-        .filter-row {
-            display: flex;
-            gap: 2px;
-            margin-bottom: 4px;
-            flex-wrap: wrap;
-        }
-
-        .select-placeholder {
-            min-width: 120px;
-            height: 28px;
-            background-color: #fff;
-            border: 1px solid #e5e6eb;
-            border-radius: 2px;
-            padding: 0 5px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            font-size: 12px;
-            color: #1d2129;
-        }
-
-        .arrow-placeholder {
-            width: 10px;
-            height: 6px;
-            background-color: #c9cdd4;
-        }
+        .filter-row { display: flex; gap: 2px; margin-bottom: 4px; flex-wrap: wrap; }
+        .select-placeholder { min-width: 120px; height: 28px; background-color: #fff; border: 1px solid #e5e6eb; border-radius: 2px; padding: 0 5px; display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: #1d2129; }
+        .arrow-placeholder { width: 10px; height: 6px; background-color: #c9cdd4; }
 
         /* 数据卡片 */
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(6, 1fr);
-            gap: 6px;
-            margin-bottom: 4px;
-        }
+        .stats-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin-bottom: 4px; }
+        .stat-card { background-color: #fff; padding: 16px; padding-top: 4px; border-radius: 2px; border: 1px solid #e5e6eb; height: 80px; }
+        .stat-header { display: flex; justify-content: space-between; font-size: 14px; color: #4e5969; margin-bottom: 2px; }
+        .stat-value { font-size: 18px; font-weight: bold; color: #1d2129; margin-bottom: 2px; }
+        .stat-footer { font-size: 12px; display: flex; justify-content: space-between; }
 
-        .stat-card {
-            background-color: #fff;
-            padding: 16px;
-            padding-top: 4px;
-            border-radius: 2px;
-            border: 1px solid #e5e6eb;
-            height: 80px;
-        }
-
-        .stat-header {
-            display: flex;
-            justify-content: space-between;
-            font-size: 14px;
-            color: #4e5969;
-            margin-bottom: 2px;
-        }
-
-        .stat-value {
-            font-size: 18px;
-            font-weight: bold;
-            color: #1d2129;
-            margin-bottom: 2px;
-        }
-
-        .stat-footer {
-            font-size: 12px;
-            display: flex;
-            justify-content: space-between;
-        }
-
-        /* 还原：绿升红降 (国际标准) */
         .trend-up { color: #00b42a; font-weight: 500; }
         .trend-down { color: #f53f3f; font-weight: 500; }
         .trend-none { color: #86909c; }
 
         /* 表格控制栏 */
-        .table-toolbar {
-            background-color: #fff;
-            padding: 12px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border: 1px solid #e5e6eb;
-            border-bottom: none;
-            height: 40px;
-        }
-
-        .toolbar-left {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-
-        .search-group {
-            display: flex;
-            border: 1px solid #e5e6eb;
-            height: 24px;
-            border-radius: 2px;
-            font-size: 10px;
-            background: #fff;
-        }
-
-        /* 搜索输入框取消默认外边框 */
-        .search-group input:focus {
-            outline: none;
-        }
-
-        .seg-control {
-            display: flex;
-            border: 1px solid #e5e6eb;
-            border-radius: 2px;
-            overflow: hidden;
-            padding-top: 0px;
-        }
-
-        .seg-btn {
-            padding: 0 12px;
-            height: 24px;
-            line-height: 24px; 
-            font-size: 10px;
-            background: #fff;
-            border-right: 1px solid #e5e6eb;
-        }
-
-        .seg-btn.active {
-            color: #165dff;
-            border: 1px solid #165dff;
-            position: relative;
-            z-index: 1;
-        }
+        .table-toolbar { background-color: #fff; padding: 12px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #e5e6eb; border-bottom: none; height: 40px; }
+        .toolbar-left { display: flex; gap: 10px; align-items: center; }
+        .search-group { display: flex; border: 1px solid #e5e6eb; height: 24px; border-radius: 2px; font-size: 10px; background: #fff; }
+        .search-group input:focus { outline: none; }
+        .seg-control { display: flex; border: 1px solid #e5e6eb; border-radius: 2px; overflow: hidden; cursor: pointer; }
+        .seg-btn { padding: 0 12px; height: 24px; line-height: 24px; font-size: 10px; background: #fff; border-right: 1px solid #e5e6eb; transition: 0.2s; }
+        .seg-btn:last-child { border-right: none; }
+        .seg-btn.active { color: #165dff; border: 1px solid #165dff; position: relative; z-index: 1; }
 
         /* 数据表格 */
-        .table-container {
-            background-color: #fff;
-            border: 1px solid #e5e6eb;
-            overflow: auto;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 12px;
-        }
-
-        th {
-            background-color: #f7f8fa; 
-            text-align: left;
-            padding: 6px 10px; 
-            border: 1px solid #e5e6eb; 
-            color: #4e5969;
-            font-weight: bold; 
-            position: sticky; 
-            top: 0; 
-            z-index: 10; 
-            white-space: nowrap;
-        }
-
-        td {
-            padding: 6px 10px; 
-            border: 1px solid #e5e6eb; 
-            vertical-align: middle;
-            word-break: break-all;
-        }
-        .col-core1-id {
-            width: 180px;            /* 绝对宽度控制，请根据你的实际需求修改数值 */
-            min-width: 180px;        /* 设置最小宽度，防止表格缩放时被其他列挤压 */
-            max-width: 180px;        /* 设置最大宽度，配合下方代码实现超出截断 */
-            white-space: nowrap;     /* 强制内容在一行显示，绝不换行 */
-            overflow: hidden;        /* 超出设定的 120px 宽度的内容直接隐藏 */
-            text-overflow: ellipsis; /* 隐藏的部分使用省略号(...)代替 */
-        }
-
-        .col-core2-id {
-            width: 110px;            /* 绝对宽度控制，请根据你的实际需求修改数值 */
-            min-width: 110px;        /* 设置最小宽度，防止表格缩放时被其他列挤压 */
-            max-width: 110px;        /* 设置最大宽度，配合下方代码实现超出截断 */
-            white-space: nowrap;     /* 强制内容在一行显示，绝不换行 */
-            overflow: hidden;        /* 超出设定的 120px 宽度的内容直接隐藏 */
-            text-overflow: ellipsis; /* 隐藏的部分使用省略号(...)代替 */
-        }
-
-        .col-core3-id {
-            width: 80px;            /* 绝对宽度控制，请根据你的实际需求修改数值 */
-            min-width: 80px;        /* 设置最小宽度，防止表格缩放时被其他列挤压 */
-            max-width: 80px;        /* 设置最大宽度，配合下方代码实现超出截断 */
-            white-space: nowrap;     /* 强制内容在一行显示，绝不换行 */
-            overflow: hidden;        /* 超出设定的 120px 宽度的内容直接隐藏 */
-            text-overflow: ellipsis; /* 隐藏的部分使用省略号(...)代替 */
-        }
-
-        .col-core4-id {
-            width: 150px;            /* 绝对宽度控制，请根据你的实际需求修改数值 */
-            min-width: 150px;        /* 设置最小宽度，防止表格缩放时被其他列挤压 */
-            max-width: 150px;        /* 设置最大宽度，配合下方代码实现超出截断 */
-            white-space: nowrap;     /* 强制内容在一行显示，绝不换行 */
-            overflow: hidden;        /* 超出设定的 120px 宽度的内容直接隐藏 */
-            text-overflow: ellipsis; /* 隐藏的部分使用省略号(...)代替 */
-        }
-
-        .action-link {
-            color: #165dff;
-            cursor: pointer;
-        }
-
-        .sortable {
-            cursor: pointer;
-            user-select: none;
-            transition: background-color 0.2s;
-        }
-        .sortable:hover {
-            background-color: #e5e6eb;
-        }
-        .sort-icon {
-            display: inline-block;
-            margin-left: 4px;
-            font-size: 10px;
-            color: #c9cdd4;
-        }
+        .table-container { background-color: #fff; border: 1px solid #e5e6eb; overflow: auto; min-height: 300px; /* 预留悬浮框空间 */ }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        th { background-color: #f7f8fa; text-align: left; padding: 6px 10px; border: 1px solid #e5e6eb; color: #4e5969; font-weight: bold; position: sticky; top: 0; z-index: 10; white-space: nowrap; }
+        td { padding: 6px 10px; border: 1px solid #e5e6eb; vertical-align: middle; word-break: break-all; }
+        
+        .col-core1-id { width: 180px; min-width: 180px; max-width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .col-core2-id { width: 110px; min-width: 110px; max-width: 110px; }
+        .col-core3-id { width: 80px; min-width: 80px; max-width: 80px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .col-core4-id { width: 150px; min-width: 150px; max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        
+        .action-link { color: #165dff; cursor: pointer; user-select: none; }
+        .sortable { cursor: pointer; user-select: none; transition: background-color 0.2s; }
+        .sortable:hover { background-color: #e5e6eb; }
+        .sort-icon { display: inline-block; margin-left: 4px; font-size: 10px; color: #c9cdd4; }
         .sort-asc::after { content: '↑'; color: #165dff; }
         .sort-desc::after { content: '↓'; color: #165dff; }
         .sort-none::after { content: '↕'; }
 
+        /* 悬浮下拉框核心样式 */
+        .dropdown-container { position: relative; display: inline-block; }
+        .dropdown-list {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            background-color: #fff;
+            border: 1px solid #e5e6eb;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            border-radius: 4px;
+            padding: 8px 12px;
+            z-index: 100;
+            min-width: 120px;
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: nowrap;
+            margin-top: 4px;
+            line-height: 1.6;
+        }
+        .dropdown-list.show { display: block; }
     </style>
 </head>
 <body>
@@ -429,8 +144,8 @@
                 <div class="title-group">
                     <h2>即时销售报告<div style="width:16px;height:16px;background:#165dff;border-radius: 2px;display: inline-block;vertical-align: middle;"></div></h2>
                     <div class="update-time" style="margin-left: 60px;">更新时间
-	        <span id="target-time"></span>
-	    </div>
+	                    <span id="target-time"></span>
+	                </div>
                 </div>
             </div>
 
@@ -479,9 +194,8 @@
                         <input type="text" id="searchInput" placeholder="请输入关键词" oninput="handleSearch(event)" style="padding: 0 8px; border:none; line-height:22px; width:200px; box-sizing: border-box; font-size:10px; color: #1d2129;">
                     </div>
                     <div class="seg-control">
-                        <div class="seg-btn">父ASIN</div>
-                        <div class="seg-btn active">子ASIN</div>
-                        <div class="seg-btn">SKU</div>
+                        <div class="seg-btn" id="btn-parent" onclick="switchView('parent')">父ASIN</div>
+                        <div class="seg-btn active" id="btn-child" onclick="switchView('child')">子ASIN</div>
                     </div>
                 </div>
                 <div class="toolbar-right" style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #4e5969;">
@@ -522,53 +236,62 @@
     </div>
 
     <script>
-         // 格式化时间为 YYYY-MM-DD HH:mm
+        // 时间逻辑
         function formatDate(date) {
             const year = date.getFullYear();
             const month = String(date.getMonth() + 1).padStart(2, '0');
             const day = String(date.getDate()).padStart(2, '0');
             const hours = String(date.getHours()).padStart(2, '0');
             const minutes = String(date.getMinutes()).padStart(2, '0');
-            
             return `${year}-${month}-${day} ${hours}:${minutes}`;
         }
-
-        // 计算符合逻辑的目标时间
         function getCalculatedTime() {
             const now = new Date();
             const currentMinutes = now.getMinutes();
-
-            // 如果当前分钟数小于10，则将小时减1
-            if (currentMinutes < 10) {
-                // setHours 会自动处理跨天、跨月、跨年的时间退位运算，例如 00:05 会退回前一天的 23:10
-                now.setHours(now.getHours() - 1);
-            }
-
-            // 无论如何，最终分钟数固定设为10
+            if (currentMinutes < 10) now.setHours(now.getHours() - 1);
             now.setMinutes(10);
-            
             return formatDate(now);
         }
-
-        // 初始化并启动定时器
         function startTimeDisplay() {
             const timeElement = document.getElementById('target-time');
-            
-            // 首次执行，避免页面加载时出现空白
             timeElement.textContent = getCalculatedTime();
-
-            // 每秒检查并更新一次页面，确保时间跨过整点10分时能实时切换
-            setInterval(() => {
-                timeElement.textContent = getCalculatedTime();
-            },10000);
+            setInterval(() => { timeElement.textContent = getCalculatedTime(); }, 10000);
         }
-
-        // 页面加载完成后运行
         window.onload = startTimeDisplay;
 
+        // 图片加载失败的智能重试调度器
+        window.handleImageError = function(imgElement) {
+            let retries = parseInt(imgElement.getAttribute('data-retries') || '0');
+            const maxRetries = 3; // 最多允许重试 3 次
+
+            if (retries < maxRetries) {
+                imgElement.setAttribute('data-retries', retries + 1);
+                
+                // 指数退避：1.5s -> 3s -> 4.5s
+                const waitTime = 1500 * (retries + 1); 
+                
+                setTimeout(() => {
+                    let currentSrc = imgElement.src;
+                    // 利用时间戳强制破除浏览器错误缓存
+                    if (currentSrc.includes('&_t=')) {
+                        currentSrc = currentSrc.replace(/&_t=\d+/, '&_t=' + new Date().getTime());
+                    } else {
+                        currentSrc = currentSrc + '&_t=' + new Date().getTime();
+                    }
+                    imgElement.src = currentSrc;
+                }, waitTime);
+            } else {
+                // 重试 3 次依然失败，替换为一个干净的灰色占位块
+                imgElement.onerror = null;
+                imgElement.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAMLCwgAAACH5BAAAAAAALAAAAAABAAEAAAICRAEAOw==';
+            }
+        };
+
+        // 核心全局变量
         let globalRecords = []; 
         let currentSort = { key: null, direction: 'none' }; 
-        let currentSearchTerm = ''; // 全局记录当前搜索词
+        let currentSearchTerm = ''; 
+        let currentView = 'child'; // 'child' 或 'parent'
 
         document.addEventListener('DOMContentLoaded', function() {
             fetchSalesData();
@@ -578,11 +301,9 @@
             try {
                 const response = await fetch('http://121.40.126.178:5000/api/sales');
                 const result = await response.json();
-
                 if (result.status === 'success') {
                     globalRecords = result.data;
                     calculateAndRenderCards(globalRecords);
-                    // 默认首次加载触发“今日销量”降序排列
                     handleSort('今日销量'); 
                 } else {
                     console.error("从中转站抓取数据失败:", result);
@@ -617,10 +338,8 @@
 
             document.getElementById('card-qty-today').innerText = totalQtyToday.toLocaleString();
             document.getElementById('card-qty-footer').innerHTML = `<span>昨日累计 ${totalQtyYesterday.toLocaleString()}</span>${formatTrendHtml(totalQtyToday, totalQtyYesterday)}`;
-
             document.getElementById('card-sales-today').innerText = `$${totalSalesToday.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
             document.getElementById('card-sales-footer').innerHTML = `<span>昨日累计 $${totalSalesYesterday.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>${formatTrendHtml(totalSalesToday, totalSalesYesterday)}`;
-
             document.getElementById('card-amount-today').innerText = `$${totalSalesToday.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
             document.getElementById('card-amount-footer').innerHTML = `<span>昨日累计 $${totalSalesYesterday.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>${formatTrendHtml(totalSalesToday, totalSalesYesterday)}`;
 
@@ -630,13 +349,18 @@
             document.getElementById('card-avgprice-footer').innerHTML = `<span>昨日累计 $${avgPriceYesterday.toFixed(2)}</span>${formatTrendHtml(avgPriceToday, avgPriceYesterday)}`;
         }
 
-        // 监听搜索输入动作
+        function switchView(viewName) {
+            currentView = viewName;
+            document.querySelectorAll('.seg-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`btn-${viewName}`).classList.add('active');
+            applyFilterAndSort();
+        }
+
         function handleSearch(event) {
             currentSearchTerm = event.target.value.trim().toLowerCase();
             applyFilterAndSort();
         }
 
-        // 监听表头点击动作
         function handleSort(key) {
             if (currentSort.key === key) {
                 if (currentSort.direction === 'none') currentSort.direction = 'desc';
@@ -646,10 +370,7 @@
                 currentSort.key = key;
                 currentSort.direction = 'desc'; 
             }
-
-            document.querySelectorAll('.sort-icon').forEach(icon => {
-                icon.className = 'sort-icon sort-none'; 
-            });
+            document.querySelectorAll('.sort-icon').forEach(icon => { icon.className = 'sort-icon sort-none'; });
             const activeIcon = document.getElementById(`sort-icon-${key}`);
             if (currentSort.direction === 'desc') activeIcon.className = 'sort-icon sort-desc';
             if (currentSort.direction === 'asc') activeIcon.className = 'sort-icon sort-asc';
@@ -657,11 +378,10 @@
             applyFilterAndSort();
         }
 
-        // 核心合并引擎：同时应用搜索词和排序状态
         function applyFilterAndSort() {
             let processedRecords = [...globalRecords];
 
-            // 1. 先过滤 (全局模糊匹配 父ASIN 或 子ASIN)
+            // 1. 过滤
             if (currentSearchTerm) {
                 processedRecords = processedRecords.filter(record => {
                     const fAsin = (record.fields['父ASIN'] || '').toLowerCase();
@@ -670,22 +390,149 @@
                 });
             }
 
-            // 2. 后排序
+            // 2. 聚合视图逻辑 (如果是父ASIN)
+            if (currentView === 'parent') {
+                const parentMap = {};
+                processedRecords.forEach(record => {
+                    const f = record.fields;
+                    const pAsin = f['父ASIN'] || '无父ASIN';
+                    
+                    if (!parentMap[pAsin]) {
+                        parentMap[pAsin] = {
+                            '产品名称': f['产品名称'],
+                            '产品图': f['产品图'],
+                            '父ASIN': pAsin,
+                            '子ASIN_list': [],
+                            'MSKU_list': [],
+                            '目标销量': 0,
+                            '今日销量': 0,
+                            '今日销售额': 0,
+                            '昨日销量': 0,
+                            '昨日销售额': 0,
+                            '上周同日销量': 0,
+                            '可售库存': 0,
+                            '今日单价_list': [],
+                            '昨日单价_list': [],
+                            '估算昨日基准': 0,
+                            '大类排名': f['大类排名'] || '-',
+                            '小类排名': f['小类排名'] || '-'
+                        };
+                    }
+
+                    const p = parentMap[pAsin];
+                    if (f['子ASIN'] && !p['子ASIN_list'].includes(f['子ASIN'])) p['子ASIN_list'].push(f['子ASIN']);
+                    if (f['MSKU'] && !p['MSKU_list'].includes(f['MSKU'])) p['MSKU_list'].push(f['MSKU']);
+                    
+                    p['目标销量'] += parseInt(f['目标销量']) || 0;
+                    p['今日销量'] += parseInt(f['今日销量']) || 0;
+                    p['今日销售额'] += parseFloat(f['今日销售额']) || 0;
+                    p['昨日销量'] += parseInt(f['昨日销量']) || 0;
+                    p['昨日销售额'] += parseFloat(f['昨日销售额']) || 0;
+                    p['上周同日销量'] += parseInt(f['上周同日销量']) || 0;
+                    p['可售库存'] += parseInt(f['可售库存']) || 0;
+                    
+                    if (f['今日单价']) p['今日单价_list'].push(parseFloat(f['今日单价']));
+                    if (f['昨日单价']) p['昨日单价_list'].push(parseFloat(f['昨日单价']));
+
+                    const todayVol = parseInt(f['今日销量']) || 0;
+                    const rateVal = parseFloat(f['环比昨日']) || 0;
+                    let baseline = todayVol / (1 + rateVal);
+                    if (isNaN(baseline) || !isFinite(baseline)) baseline = 0;
+                    p['估算昨日基准'] += baseline;
+                });
+
+                processedRecords = Object.keys(parentMap).map(key => {
+                    const p = parentMap[key];
+                    const avgTodayPrice = p['今日单价_list'].length > 0 ? (p['今日单价_list'].reduce((a,b)=>a+b,0) / p['今日单价_list'].length) : 0;
+                    const avgYestPrice = p['昨日单价_list'].length > 0 ? (p['昨日单价_list'].reduce((a,b)=>a+b,0) / p['昨日单价_list'].length) : 0;
+
+                    let finalBaseline = p['估算昨日基准'];
+                    if (finalBaseline <= 0 && p['今日销量'] > 0) finalBaseline = 1;
+                    const finalRate = finalBaseline > 0 ? (p['今日销量'] - finalBaseline) / finalBaseline : 0;
+
+                    const sellDays = p['昨日销量'] > 0 ? (p['可售库存'] / p['昨日销量']).toFixed(0) : 0;
+
+                    return {
+                        fields: {
+                            '产品名称': p['产品名称'],
+                            '产品图': p['产品图'],
+                            '父ASIN': p['父ASIN'],
+                            '子ASIN_list': p['子ASIN_list'],
+                            'MSKU_list': p['MSKU_list'],
+                            '目标销量': p['目标销量'],
+                            '今日销量': p['今日销量'],
+                            '环比昨日': finalRate,
+                            '今日销售额': p['今日销售额'],
+                            '今日单价': avgTodayPrice,
+                            '昨日销量': p['昨日销量'],
+                            '昨日销售额': p['昨日销售额'],
+                            '昨日单价': avgYestPrice,
+                            '上周同日销量': p['上周同日销量'],
+                            '可售库存': p['可售库存'],
+                            '可售天数': sellDays,
+                            '大类排名': p['大类排名'],
+                            '小类排名': p['小类排名']
+                        }
+                    };
+                });
+            }
+
+            // 3. 排序
             if (currentSort.direction !== 'none' && currentSort.key) {
                 processedRecords.sort((a, b) => {
                     let valA = parseFloat(a.fields[currentSort.key]) || 0;
                     let valB = parseFloat(b.fields[currentSort.key]) || 0;
-
                     if (valA < valB) return currentSort.direction === 'asc' ? -1 : 1;
                     if (valA > valB) return currentSort.direction === 'asc' ? 1 : -1;
                     return 0;
                 });
             }
 
-            // 3. 渲染并更新条数
+            // 4. 渲染
             renderTable(processedRecords);
             document.getElementById('toolbar-total-count').innerText = `共 ${processedRecords.length} 条`;
         }
+
+        // 渲染悬浮框组件
+        function renderCollapsibleList(listData) {
+            if (!listData || listData.length === 0) return '-';
+            if (listData.length === 1) return listData[0];
+            
+            const first = listData[0];
+            const allStr = listData.join('<br>');
+            return `
+                <div class="dropdown-container">
+                    <span>${first}</span><br>
+                    <span class="action-link" style="font-size: 10px;" onclick="toggleDropdown(event, this)">展开...</span>
+                    <div class="dropdown-list">${allStr}</div>
+                </div>
+            `;
+        }
+
+        // 切换悬浮框显示状态
+        window.toggleDropdown = function(event, btn) {
+            event.stopPropagation(); 
+            
+            const dropdown = btn.nextElementSibling;
+            const isCurrentlyShow = dropdown.classList.contains('show');
+
+            document.querySelectorAll('.dropdown-list').forEach(list => {
+                list.classList.remove('show');
+            });
+
+            if (!isCurrentlyShow) {
+                dropdown.classList.add('show');
+            }
+        };
+
+        // 点击页面空白处自动关闭悬浮框
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.dropdown-container')) {
+                document.querySelectorAll('.dropdown-list').forEach(list => {
+                    list.classList.remove('show');
+                });
+            }
+        });
 
         function renderTable(records) {
             const tbody = document.querySelector('tbody');
@@ -698,25 +545,28 @@
                 let imgHtml = '<div style="width:25px; height:25px; background-color:#f2f3f5; border-radius:2px;"></div>';
                 if (fields['产品图'] && fields['产品图'].length > 0) {
                     const rawFeishuImgUrl = fields['产品图'][0].url; 
-                    imgHtml = `<img src="http://121.40.126.178:5000/api/image?url=${encodeURIComponent(rawFeishuImgUrl)}" style="width:25px; height:25px; object-fit:cover; border-radius:2px; display:block;">`;
+                    imgHtml = `<img src="http://121.40.126.178:5000/api/image?url=${encodeURIComponent(rawFeishuImgUrl)}" loading="lazy" onerror="handleImageError(this)" style="width:25px; height:25px; object-fit:cover; border-radius:2px; display:block;">`;
                 }
 
                 let trendClass = '', trendText = '-';
                 if (fields['环比昨日'] !== undefined && fields['环比昨日'] !== '') {
                     const num = parseFloat(fields['环比昨日']);
-                    const percentage = (Math.abs(num) * 100).toFixed(2) + '%';
+                    const percentage = (Math.abs(num) * 100).toFixed(0) + '%';
                     if (num > 0) { trendClass = 'trend-up'; trendText = '+' + percentage; }
                     else if (num < 0) { trendClass = 'trend-down'; trendText = '-' + percentage; }
                     else { trendText = percentage; }
                 }
+
+                const cAsinDisplay = currentView === 'parent' ? renderCollapsibleList(fields['子ASIN_list']) : (fields['子ASIN'] || '-');
+                const mskuDisplay = currentView === 'parent' ? renderCollapsibleList(fields['MSKU_list']) : (fields['MSKU'] || '-');
 
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td>${fields['产品名称'] || '-'}</td>
                     <td>${imgHtml}</td>
                     <td>${fields['父ASIN'] || '-'}</td>
-                    <td>${fields['子ASIN'] || '-'}</td>
-                    <td>${fields['MSKU'] || '-'}</td>
+                    <td>${cAsinDisplay}</td>
+                    <td>${mskuDisplay}</td>
                     <td>${fields['目标销量'] || '-'}</td>
                     <td>${fields['今日销量'] || '0'}</td>
                     <td class="${trendClass}">${trendText}</td>
