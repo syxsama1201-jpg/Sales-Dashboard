@@ -64,6 +64,9 @@
         .table-container { background-color: #fff; border: 1px solid #e5e6eb; overflow: auto; min-height: 300px; /* 预留悬浮框空间 */ }
         table { width: 100%; border-collapse: collapse; font-size: 12px; }
         th { background-color: #f7f8fa; text-align: left; padding: 6px 10px; border: 1px solid #e5e6eb; color: #4e5969; font-weight: bold; position: sticky; top: 0; z-index: 10; white-space: nowrap; }
+        /* 列宽拖拽手柄 */
+        .resize-handle { position: absolute; right: -3px; top: 0; bottom: 0; width: 6px; cursor: col-resize; z-index: 20; background: transparent; transition: background-color 0.15s; }
+        .resize-handle:hover, .resize-handle.active { background-color: #165dff; }
         td { padding: 6px 10px; border: 1px solid #e5e6eb; vertical-align: middle; word-break: break-all; }
         
         .col-core1-id { width: 180px; min-width: 180px; max-width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -100,9 +103,52 @@
             line-height: 1.6;
         }
         .dropdown-list.show { display: block; }
+
+        /* ===== 登录遮罩层 ===== */
+        .login-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.55); z-index: 9999;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .login-overlay.hidden { display: none; }
+        .login-card {
+            background: #fff; border-radius: 8px; padding: 40px 36px;
+            width: 360px; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+            text-align: center;
+        }
+        .login-title { font-size: 20px; font-weight: 600; color: #1d2129; margin-bottom: 6px; }
+        .login-subtitle { font-size: 13px; color: #86909c; margin-bottom: 28px; }
+        .login-input {
+            width: 100%; height: 42px; padding: 0 12px; margin-bottom: 14px;
+            border: 1px solid #e5e6eb; border-radius: 4px; font-size: 14px;
+            box-sizing: border-box; outline: none; transition: border-color 0.2s;
+        }
+        .login-input:focus { border-color: #165dff; box-shadow: 0 0 0 2px rgba(22, 93, 255, 0.1); }
+        .login-btn {
+            width: 100%; height: 42px; background: #165dff; color: #fff;
+            border: none; border-radius: 4px; font-size: 15px; cursor: pointer;
+            margin-top: 6px; transition: background 0.2s; letter-spacing: 2px;
+        }
+        .login-btn:hover { background: #0e4bd6; }
+        .login-btn:disabled { background: #94b4f7; cursor: not-allowed; }
+        .login-error { color: #f53f3f; font-size: 12px; margin-top: 14px; min-height: 18px; }
+        .login-footer { margin-top: 20px; font-size: 11px; color: #c9cdd4; }
     </style>
 </head>
 <body>
+
+    <!-- ===== 登录遮罩层 ===== -->
+    <div id="loginOverlay" class="login-overlay hidden">
+        <div class="login-card">
+            <div class="login-title">即时销售报告</div>
+            <div class="login-subtitle">请输入账号密码登录</div>
+            <input type="text" id="loginUser" class="login-input" placeholder="用户名" autocomplete="username">
+            <input type="password" id="loginPass" class="login-input" placeholder="密码" autocomplete="current-password">
+            <button id="loginBtn" class="login-btn" onclick="doLogin()">登 录</button>
+            <div id="loginError" class="login-error"></div>
+            <div class="login-footer">Acmezone 销售数据看板</div>
+        </div>
+    </div>
 
     <div class="sidebar">
         <div class="sidebar-logo"></div>
@@ -236,6 +282,100 @@
     </div>
 
     <script>
+        // ===== 登录认证核心逻辑 =====
+        const AUTH_KEY = 'salesReport_auth';
+        const API_BASE = 'http://121.40.126.178:5000';
+
+        function getStoredAuth() {
+            try {
+                const raw = localStorage.getItem(AUTH_KEY);
+                return raw ? JSON.parse(raw) : null;
+            } catch(e) { return null; }
+        }
+
+        function saveAuth(data) {
+            localStorage.setItem(AUTH_KEY, JSON.stringify(data));
+        }
+
+        function clearAuth() {
+            localStorage.removeItem(AUTH_KEY);
+        }
+
+        function getToken() {
+            const auth = getStoredAuth();
+            if (!auth || !auth.token) return null;
+            // 客户端侧粗略检查过期（精确校验在服务端）
+            if (auth.expires_at && Date.now() / 1000 > auth.expires_at) {
+                clearAuth();
+                return null;
+            }
+            return auth.token;
+        }
+
+        function isLoggedIn() {
+            return !!getToken();
+        }
+
+        function showLoginOverlay() {
+            document.getElementById('loginOverlay').classList.remove('hidden');
+            document.getElementById('loginError').textContent = '';
+            document.getElementById('loginPass').value = '';
+        }
+
+        function hideLoginOverlay() {
+            document.getElementById('loginOverlay').classList.add('hidden');
+        }
+
+        async function doLogin() {
+            const username = document.getElementById('loginUser').value.trim();
+            const password = document.getElementById('loginPass').value;
+            const errorEl = document.getElementById('loginError');
+            const btn = document.getElementById('loginBtn');
+
+            if (!username || !password) {
+                errorEl.textContent = '请输入用户名和密码';
+                return;
+            }
+
+            btn.textContent = '登录中...';
+            btn.disabled = true;
+            errorEl.textContent = '';
+
+            try {
+                const res = await fetch(API_BASE + '/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: username, password: password })
+                });
+                const data = await res.json();
+
+                if (res.ok && data.status === 'success') {
+                    saveAuth({
+                        token: data.token,
+                        user: data.user,
+                        expires_at: Math.floor(Date.now() / 1000) + data.expires_in
+                    });
+                    hideLoginOverlay();
+                    fetchSalesData();
+                } else {
+                    errorEl.textContent = data.detail || '登录失败，请重试';
+                }
+            } catch(e) {
+                errorEl.textContent = '无法连接服务器，请检查网络';
+                console.error('登录异常:', e);
+            } finally {
+                btn.textContent = '登 录';
+                btn.disabled = false;
+            }
+        }
+
+        // 回车键快捷登录
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !isLoggedIn()) {
+                doLogin();
+            }
+        });
+
         // 时间逻辑
         function formatDate(date) {
             const year = date.getFullYear();
@@ -294,12 +434,29 @@
         let currentView = 'child'; // 'child' 或 'parent'
 
         document.addEventListener('DOMContentLoaded', function() {
-            fetchSalesData();
+            if (isLoggedIn()) {
+                hideLoginOverlay();
+                fetchSalesData();
+            } else {
+                showLoginOverlay();
+            }
         });
 
         async function fetchSalesData() {
+            const token = getToken();
+            if (!token) {
+                showLoginOverlay();
+                return;
+            }
             try {
-                const response = await fetch('http://121.40.126.178:5000/api/sales');
+                const response = await fetch(API_BASE + '/api/sales', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                if (response.status === 401) {
+                    clearAuth();
+                    showLoginOverlay();
+                    return;
+                }
                 const result = await response.json();
                 if (result.status === 'success') {
                     globalRecords = result.data;
@@ -544,8 +701,9 @@
 
                 let imgHtml = '<div style="width:25px; height:25px; background-color:#f2f3f5; border-radius:2px;"></div>';
                 if (fields['产品图'] && fields['产品图'].length > 0) {
-                    const rawFeishuImgUrl = fields['产品图'][0].url; 
-                    imgHtml = `<img src="http://121.40.126.178:5000/api/image?url=${encodeURIComponent(rawFeishuImgUrl)}" loading="lazy" onerror="handleImageError(this)" style="width:25px; height:25px; object-fit:cover; border-radius:2px; display:block;">`;
+                    const rawFeishuImgUrl = fields['产品图'][0].url;
+                    const imgToken = getToken();
+                    imgHtml = `<img src="http://121.40.126.178:5000/api/image?url=${encodeURIComponent(rawFeishuImgUrl)}&_token=${encodeURIComponent(imgToken || '')}" loading="lazy" onerror="handleImageError(this)" style="width:25px; height:25px; object-fit:cover; border-radius:2px; display:block;">`;
                 }
 
                 let trendClass = '', trendText = '-';
@@ -585,6 +743,95 @@
                 tbody.appendChild(tr);
             });
         }
+        // ===== 列宽拖拽调整 + localStorage 持久化 =====
+        (function() {
+            const STORAGE_KEY = 'salesReport_columnWidths';
+
+            let resizeState = null;
+
+            // 从 localStorage 读取已保存的列宽
+            function getSavedWidths() {
+                try {
+                    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+                } catch(e) { return {}; }
+            }
+
+            // 将所有列宽保存到 localStorage
+            function saveAllWidths() {
+                try {
+                    const ths = document.querySelectorAll('table thead th');
+                    const widthMap = {};
+                    ths.forEach((th, i) => {
+                        widthMap[i] = th.offsetWidth;
+                    });
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(widthMap));
+                } catch(e) {}
+            }
+
+            // 页面加载时恢复已保存的列宽
+            function applySavedWidths() {
+                const widths = getSavedWidths();
+                const ths = document.querySelectorAll('table thead th');
+                ths.forEach((th, i) => {
+                    if (widths[i]) {
+                        th.style.width = widths[i] + 'px';
+                        th.style.minWidth = widths[i] + 'px';
+                        th.style.maxWidth = 'none';
+                        th.dataset.resized = 'true';
+                    }
+                });
+            }
+
+            // 为每个表头添加拖拽手柄
+            function initResizeHandles() {
+                const ths = document.querySelectorAll('table thead th');
+                ths.forEach((th, i) => {
+                    const handle = document.createElement('div');
+                    handle.className = 'resize-handle';
+                    handle.addEventListener('mousedown', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        // 阻止与排序点击冲突
+                        resizeState = {
+                            th: th,
+                            index: i,
+                            startX: e.clientX,
+                            startWidth: th.offsetWidth
+                        };
+                        handle.classList.add('active');
+                        document.body.style.cursor = 'col-resize';
+                        document.body.style.userSelect = 'none';
+                    });
+                    th.appendChild(handle);
+                });
+            }
+
+            // 全局鼠标移动 — 实时调整列宽
+            document.addEventListener('mousemove', function(e) {
+                if (!resizeState) return;
+                const diff = e.clientX - resizeState.startX;
+                const newWidth = Math.max(40, resizeState.startWidth + diff); // 最小宽度 40px
+                const th = resizeState.th;
+                th.style.width = newWidth + 'px';
+                th.style.minWidth = newWidth + 'px';
+                th.style.maxWidth = 'none';
+                th.dataset.resized = 'true';
+            });
+
+            // 全局鼠标松开 — 结束拖拽并保存
+            document.addEventListener('mouseup', function() {
+                if (!resizeState) return;
+                document.querySelectorAll('.resize-handle').forEach(function(h) { h.classList.remove('active'); });
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+                saveAllWidths();
+                resizeState = null;
+            });
+
+            // 初始化：添加手柄 + 恢复宽度
+            initResizeHandles();
+            applySavedWidths();
+        })();
     </script>
 </body>
 </html>
