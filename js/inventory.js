@@ -218,7 +218,7 @@ function renderTable(records) {
         if (f[FIELD_MAP['产品图']] && f[FIELD_MAP['产品图']].length > 0) {
             const rawFeishuImgUrl = f[FIELD_MAP['产品图']][0].url;
             const imgToken = getToken();
-            imgHtml = `<img src="http://121.40.126.178:5000/api/image?url=${encodeURIComponent(rawFeishuImgUrl)}&_token=${encodeURIComponent(imgToken || '')}" loading="lazy" onerror="handleImageError(this)" style="width:25px; height:25px; object-fit:cover; border-radius:2px; display:block;">`;
+            imgHtml = `<img src="${API_BASE}/api/image?url=${encodeURIComponent(rawFeishuImgUrl)}&_token=${encodeURIComponent(imgToken || '')}" loading="lazy" onerror="handleImageError(this)" style="width:25px; height:25px; object-fit:cover; border-radius:2px; display:block;">`;
         }
 
         const tr = document.createElement('tr');
