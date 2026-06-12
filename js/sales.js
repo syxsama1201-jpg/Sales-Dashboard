@@ -272,14 +272,14 @@ function renderTable(records) {
             else { trendText = percentage; }
         }
 
-        const cAsinDisplay = currentView === 'parent' ? renderCollapsibleList(fields['子ASIN_list']) : (fields['子ASIN'] || '-');
+        const cAsinDisplay = currentView === 'parent' ? renderCollapsibleList(fields['子ASIN_list'], true) : renderAsinWithLink(fields['子ASIN']);
         const mskuDisplay = currentView === 'parent' ? renderCollapsibleList(fields['MSKU_list']) : (fields['MSKU'] || '-');
 
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td>${fields['产品名称'] || '-'}</td>
             <td>${imgHtml}</td>
-            <td>${fields['父ASIN'] || '-'}</td>
+            <td>${renderAsinWithLink(fields['父ASIN'])}</td>
             <td>${cAsinDisplay}</td>
             <td>${mskuDisplay}</td>
             <td>${fields['目标销量'] || '-'}</td>

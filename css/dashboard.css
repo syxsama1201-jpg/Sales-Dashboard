@@ -47,6 +47,28 @@ body { background-color: #f2f3f5; display: flex; height: 100vh; overflow: hidden
 /* 表格控制栏 */
 .table-toolbar { background-color: #fff; padding: 12px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #e5e6eb; border-bottom: none; height: 40px; }
 .toolbar-left { display: flex; gap: 10px; align-items: center; }
+.toolbar-right { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #4e5969; }
+.download-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 10px;
+    height: 24px;
+    font-size: 12px;
+    color: #4e5969;
+    background: #fff;
+    border: 1px solid #e5e6eb;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+    user-select: none;
+}
+.download-btn:hover {
+    color: #165dff;
+    border-color: #165dff;
+    background: #e8f0ff;
+}
 .search-group { display: flex; border: 1px solid #e5e6eb; height: 24px; border-radius: 2px; font-size: 10px; background: #fff; }
 .search-group input:focus { outline: none; }
 .seg-control { display: flex; border: 1px solid #e5e6eb; border-radius: 2px; overflow: hidden; cursor: pointer; }
@@ -68,6 +90,42 @@ td { padding: 6px 10px; border: 1px solid #e5e6eb; vertical-align: middle; word-
 .col-core4-id { width: 150px; min-width: 150px; max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .action-link { color: #165dff; cursor: pointer; user-select: none; }
+
+/* ===== ASIN 亚马逊跳转按钮 ===== */
+.asin-link-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    margin-left: 4px;
+    font-size: 11px;
+    color: #86909c;
+    cursor: pointer;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    background: transparent;
+    transition: all 0.15s;
+    vertical-align: middle;
+    text-decoration: none;
+    opacity: 0;
+    user-select: none;
+    flex-shrink: 0;
+}
+tr:hover .asin-link-btn,
+.dropdown-list .asin-link-btn {
+    opacity: 1;
+}
+.asin-link-btn:hover {
+    color: #165dff;
+    border-color: #165dff;
+    background: #e8f0ff;
+}
+.asin-cell {
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+}
 
 /* ===== 冻结列样式 ===== */
 .sticky-col-1,

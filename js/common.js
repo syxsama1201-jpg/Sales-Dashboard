@@ -147,17 +147,31 @@ window.handleImageError = function(imgElement) {
 
 // ==================== 悬浮下拉框 ====================
 
-function renderCollapsibleList(listData) {
-    if (!listData || listData.length === 0) return '-';
-    if (listData.length === 1) return listData[0];
+/**
+ * 为 ASIN 文本添加亚马逊跳转小按钮
+ * 按钮默认透明，仅在行悬浮时显示，防止复制 ASIN 时误触
+ */
+function renderAsinWithLink(asin) {
+    if (!asin || asin === '-' || asin.trim() === '') return asin || '-';
+    var encoded = encodeURIComponent(asin);
+    return '<span class="asin-cell">' + asin +
+        '<a class="asin-link-btn" href="https://www.amazon.com/dp/' + encoded +
+        '" target="_blank" title="在亚马逊查看 ' + asin + '">↗</a></span>';
+}
 
-    const first = listData[0];
-    const allStr = listData.join('<br>');
+function renderCollapsibleList(listData, withLinks) {
+    if (!listData || listData.length === 0) return '-';
+    if (listData.length === 1) return withLinks ? renderAsinWithLink(listData[0]) : listData[0];
+
+    var first = withLinks ? renderAsinWithLink(listData[0]) : listData[0];
+    var allItems = listData.map(function(item) {
+        return withLinks ? renderAsinWithLink(item) : item;
+    }).join('<br>');
     return `
         <div class="dropdown-container">
             <span>${first}</span><br>
             <span class="action-link" style="font-size: 10px;" onclick="toggleDropdown(event, this)">展开...</span>
-            <div class="dropdown-list">${allStr}</div>
+            <div class="dropdown-list">${allItems}</div>
         </div>
     `;
 }

@@ -114,7 +114,8 @@
                         <input type="text" id="searchInput" placeholder="商品名称 / SKU / ASIN" oninput="handleSearch(event)" style="padding: 0 8px; border:none; line-height:22px; width:200px; box-sizing: border-box; font-size:10px; color: #1d2129;">
                     </div>
                 </div>
-                <div class="toolbar-right" style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #4e5969;">
+                <div class="toolbar-right">
+                    <button class="download-btn" onclick="downloadCSV()" title="导出当前表格为CSV">⬇ 下载</button>
                     <span id="toolbar-total-count">共 0 条</span>
                 </div>
             </div>
@@ -138,8 +139,8 @@
                             <th class="col-core2-id">父ASIN</th>
                             <th class="col-core2-id">子ASIN</th>
                             <th class="col-core2-id">MSKU</th>
-                            <th class="sortable" onclick="handleSort('包含在途')">包含在途 <span id="sort-icon-包含在途" class="sort-icon sort-none"></span></th>
-                            <th class="sortable" onclick="handleSort('不含在途')">不含在途 <span id="sort-icon-不含在途" class="sort-icon sort-none"></span></th>
+                            <th class="sortable" onclick="handleSort('包含生产在途')">包含生产在途 <span id="sort-icon-包含生产在途" class="sort-icon sort-none"></span></th>
+                            <th class="sortable" onclick="handleSort('不含生产在途')">不含生产在途 <span id="sort-icon-不含生产在途" class="sort-icon sort-none"></span></th>
                             <th class="sortable" onclick="handleSort('海外库存总量')">海外库存总量 <span id="sort-icon-海外库存总量" class="sort-icon sort-none"></span></th>
                             <th class="sortable" onclick="handleSort('FBA库存')">FBA库存 <span id="sort-icon-FBA库存" class="sort-icon sort-none"></span></th>
                             <th class="sortable" onclick="handleSort('FBA在途')">FBA在途 <span id="sort-icon-FBA在途" class="sort-icon sort-none"></span></th>

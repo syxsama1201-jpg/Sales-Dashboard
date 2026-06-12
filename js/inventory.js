@@ -9,8 +9,8 @@
 // ==================== 字段映射配置（按你的飞书表格字段名修改） ====================
 const FIELD_MAP = {
     // 卡片汇总字段
-    '包含在途': '包含在途',
-    '不含在途': '不含在途',
+    '包含生产在途': '包含生产在途',
+    '不含生产在途': '不含生产在途',
     '海外库存总量': '海外库存总量',
     '供应商库存总量': '供应商库存总量',
     '供应商在途总量': '供应商在途总量',
@@ -96,8 +96,8 @@ function calculateAndRenderCards(records) {
         const f = record.fields;
         if (!f || Object.keys(f).length === 0) return;
 
-        const withTransit = parseInt(f[FIELD_MAP['包含在途']]) || 0;
-        const withoutTransit = parseInt(f[FIELD_MAP['不含在途']]) || 0;
+        const withTransit = parseInt(f[FIELD_MAP['包含生产在途']]) || 0;
+        const withoutTransit = parseInt(f[FIELD_MAP['不含生产在途']]) || 0;
         const overseas = parseInt(f[FIELD_MAP['海外库存总量']]) || 0;
         const supplierStock = parseInt(f[FIELD_MAP['供应商库存总量']]) || 0;
         const supplierTransit = parseInt(f[FIELD_MAP['供应商在途总量']]) || 0;
@@ -225,11 +225,11 @@ function renderTable(records) {
         tr.innerHTML = `
             <td class="sticky-col-1">${f[FIELD_MAP['产品名称']] || '-'}</td>
             <td class="sticky-col-2">${imgHtml}</td>
-            <td>${f[FIELD_MAP['父ASIN']] || '-'}</td>
-            <td>${f[FIELD_MAP['子ASIN']] || '-'}</td>
+            <td>${renderAsinWithLink(f[FIELD_MAP['父ASIN']])}</td>
+            <td>${renderAsinWithLink(f[FIELD_MAP['子ASIN']])}</td>
             <td>${f[FIELD_MAP['MSKU']] || '-'}</td>
-            <td>${f[FIELD_MAP['包含在途']] || '0'}</td>
-            <td>${f[FIELD_MAP['不含在途']] || '0'}</td>
+            <td>${f[FIELD_MAP['包含生产在途']] || '0'}</td>
+            <td>${f[FIELD_MAP['不含生产在途']] || '0'}</td>
             <td>${f[FIELD_MAP['海外库存总量']] || '0'}</td>
             <td>${f[FIELD_MAP['FBA库存']] || '0'}</td>
             <td>${f[FIELD_MAP['FBA在途']] || '0'}</td>
@@ -285,3 +285,64 @@ function updateStickyColumns() {
 
 // 注册为全局回调，common.js 在列宽变更后会自动调用
 window._onColumnWidthsChanged = updateStickyColumns;
+
+// ==================== CSV 下载 ====================
+
+/**
+ * 导出当前表格可见内容为 CSV 文件
+ * 表头取第二行 thead，数据取 tbody 当前行
+ * BOM 头确保 Excel 正确识别中文
+ */
+function downloadCSV() {
+    // 1. 读取第二行表头（列名）
+    var headerRows = document.querySelectorAll('table thead tr');
+    if (headerRows.length < 2) return;
+    var headers = [];
+    headerRows[1].querySelectorAll('th').forEach(function(th) {
+        headers.push(th.textContent.trim());
+    });
+
+    // 2. 读取当前显示的表格数据
+    var rows = [];
+    document.querySelectorAll('tbody tr').forEach(function(tr) {
+        var row = [];
+        tr.querySelectorAll('td').forEach(function(td) {
+            // 排除链接按钮中的文字（ASIN 跳转按钮的 "↗"）
+            var clone = td.cloneNode(true);
+            clone.querySelectorAll('.asin-link-btn').forEach(function(btn) { btn.remove(); });
+            row.push(clone.textContent.trim());
+        });
+        rows.push(row);
+    });
+
+    if (rows.length === 0) return;
+
+    // 3. CSV 转义：包含逗号、双引号或换行的字段用双引号包裹
+    function csvEscape(str) {
+        if (!str && str !== '0') return '';
+        str = String(str);
+        if (str.indexOf(',') !== -1 || str.indexOf('"') !== -1 || str.indexOf('\n') !== -1) {
+            return '"' + str.replace(/"/g, '""') + '"';
+        }
+        return str;
+    }
+
+    // 4. 构建 CSV 内容（BOM + 表头 + 数据行）
+    var bom = '﻿';
+    var csv = bom + headers.map(csvEscape).join(',') + '\n';
+    rows.forEach(function(row) {
+        csv += row.map(csvEscape).join(',') + '\n';
+    });
+
+    // 5. 触发浏览器下载
+    var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    var today = new Date().toISOString().slice(0, 10);
+    a.download = 'inventory_' + today + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
