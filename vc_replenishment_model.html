@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>备货模型 · 总量预测</title>
+    <link rel="stylesheet" href="css/dashboard.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+    /* ── 模型工具专属变量 ── */
+    :root {
+        --mc-purple: #7C6FF7;
+        --mc-blue:   #4A9EF5;
+        --mc-green:  #4DB87A;
+        --mc-amber:  #F0A030;
+        --mc-red:    #E85555;
+    }
+
+    /* ── 覆盖：content 不需要 flex column 限制 ── */
+    .content-scrollable { display: block; }
+
+    /* ── 输入区 ── */
+    .model-input-section {
+        background: #fff; border: 1px solid #e5e6eb; border-radius: 2px;
+        padding: 14px 18px; margin-bottom: 10px;
+    }
+    .model-input-section .sec-title {
+        font-size: 12px; font-weight: 600; color: #4e5969;
+        margin-bottom: 10px; display: flex; align-items: center; gap: 8px;
+    }
+    .model-input-section .sec-title::after {
+        content: ''; flex: 1; height: 1px; background: #e5e6eb;
+    }
+    .model-input-grid {
+        display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 10px;
+    }
+    .model-input-field { display: flex; flex-direction: column; gap: 3px; }
+    .model-input-field label { font-size: 11px; color: #4e5969; }
+    .model-input-field input {
+        padding: 6px 8px; font-size: 13px; background: #fff;
+        border: 1px solid #e5e6eb; border-radius: 2px; color: #1d2129;
+        outline: none; transition: border-color .15s;
+    }
+    .model-input-field input:focus { border-color: var(--mc-purple); }
+    .model-input-note { font-size: 10px; color: #86909c; margin-top: 1px; }
+
+    /* slider */
+    .model-slider-wrap { position: relative; padding-top: 4px; }
+    .model-slider-wrap input[type=range] {
+        width: 100%; height: 6px; -webkit-appearance: none;
+        appearance: none; background: transparent; outline: none;
+    }
+    .model-slider-wrap input[type=range]::-webkit-slider-runnable-track {
+        height: 6px; border-radius: 3px;
+        background: linear-gradient(to right,
+            rgba(232,85,85,.4) 0%, rgba(232,85,85,.4) 30%,
+            rgba(77,184,122,.5) 30%, rgba(77,184,122,.5) 70%,
+            rgba(232,85,85,.4) 70%, rgba(232,85,85,.4) 100%);
+    }
+    .model-slider-wrap input[type=range]::-webkit-slider-thumb {
+        -webkit-appearance: none; appearance: none;
+        width: 18px; height: 18px; border-radius: 50%;
+        background: var(--mc-purple); border: 2px solid #fff;
+        cursor: pointer; margin-top: -6px; box-shadow: 0 1px 3px rgba(0,0,0,.15);
+    }
+    .model-slider-val { font-size: 12px; font-weight: 700; color: var(--mc-purple); }
+    .model-slider-zones { display: flex; font-size: 9px; margin-top: 2px; justify-content: space-between; }
+    .model-slider-zones span:nth-child(1) { color: rgba(232,85,85,.7); }
+    .model-slider-zones span:nth-child(2) { color: rgba(77,184,122,.7); text-align: center; }
+    .model-slider-zones span:nth-child(3) { color: rgba(232,85,85,.7); text-align: right; }
+
+    /* update-note */
+    .model-update-note {
+        font-size: 11px; color: #F0A030; background: rgba(240,160,48,.08);
+        padding: 3px 10px; border-radius: 2px; white-space: nowrap;
+    }
+
+    /* collapse */
+    .model-collapse-btn {
+        cursor: pointer; font-size: 11px; color: var(--mc-purple); font-weight: 600;
+        display: flex; align-items: center; gap: 4px; user-select: none;
+        margin-bottom: 8px;
+    }
+    .model-collapse-btn .arrow { transition: transform .2s; display: inline-block; }
+    .model-collapse-btn.open .arrow { transform: rotate(90deg); }
+    .model-collapse-body { overflow: hidden; transition: max-height .35s ease; }
+    .model-collapse-body.closed { max-height: 0 !important; }
+
+    /* 指标卡片行 */
+    .model-metrics-row {
+        display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 10px;
+    }
+    @media (max-width: 900px) { .model-metrics-row { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 500px) { .model-metrics-row { grid-template-columns: 1fr 1fr; } }
+
+    .model-metric-card {
+        background: #fff; border: 1px solid #e5e6eb; border-radius: 2px;
+        padding: 10px 12px; text-align: center;
+    }
+    .model-metric-card.warn { border-color: rgba(232,85,85,.35); background: rgba(232,85,85,.03); }
+    .model-metric-label { font-size: 11px; color: #86909c; margin-bottom: 3px; }
+    .model-metric-val { font-size: 20px; font-weight: 600; color: #1d2129; }
+    .model-metric-val.purple { color: var(--mc-purple); }
+    .model-metric-val.blue   { color: var(--mc-blue); }
+    .model-metric-val.green  { color: var(--mc-green); }
+    .model-metric-val.amber  { color: var(--mc-amber); }
+    .model-metric-val.red    { color: var(--mc-red); }
+    .model-metric-sub { font-size: 10px; color: #86909c; margin-top: 2px; }
+
+    /* ratio */
+    .model-ratio-box {
+        border: 1px solid #e5e6eb; border-radius: 2px; padding: 10px 12px;
+        margin-bottom: 10px; font-size: 12px; line-height: 1.7; background: #fff;
+    }
+    .model-ratio-box.warn {
+        border-color: rgba(232,85,85,.4); background: rgba(232,85,85,.04);
+    }
+
+    /* signal banner */
+    .model-signal {
+        border-radius: 2px; padding: 12px 16px; margin-bottom: 10px;
+        display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    }
+    .model-signal-icon { font-size: 18px; font-weight: 700; }
+
+    /* 补货卡片 */
+    .model-replen-card {
+        background: #fff; border: 1.5px solid var(--mc-purple);
+        border-radius: 4px; padding: 18px 20px; margin-bottom: 10px; display: none;
+    }
+    .model-replen-val { font-size: 36px; font-weight: 700; color: var(--mc-purple); line-height: 1; }
+    .model-replen-val span { font-size: 16px; font-weight: 400; color: #86909c; }
+    .model-replen-detail { font-size: 12px; color: #4e5969; line-height: 1.8; margin-top: 8px; }
+    .model-replen-detail b { color: #1d2129; font-weight: 600; }
+
+    /* tabs (override dashboard tab styles) */
+    .model-tab-bar {
+        display: flex; background: #fff; border: 1px solid #e5e6eb;
+        border-radius: 2px 2px 0 0; gap: 0; margin-bottom: 0;
+    }
+    .model-tab-btn {
+        padding: 8px 18px; font-size: 12px; cursor: pointer;
+        border: none; background: none; color: #4e5969;
+        font-family: inherit; transition: .15s; border-right: 1px solid #e5e6eb;
+    }
+    .model-tab-btn:last-child { border-right: none; }
+    .model-tab-btn.active { color: var(--mc-purple); font-weight: 600; background: #fafbff; }
+    .model-tab-btn:hover:not(.active) { color: #1d2129; background: #f7f8fa; }
+    .model-tab-panel { display: none; }
+    .model-tab-panel.active { display: block; }
+
+    /* section divider */
+    .model-section-title {
+        font-size: 12px; font-weight: 600; color: #4e5969;
+        display: flex; align-items: center; gap: 8px; margin: 14px 0 8px;
+    }
+    .model-section-title::after { content: ''; flex: 1; height: 1px; background: #e5e6eb; }
+
+    /* chart */
+    .model-chart-title { font-size: 13px; font-weight: 600; margin-bottom: 10px; color: #1d2129; }
+    .model-legend { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 10px; font-size: 11px; color: #4e5969; }
+    .model-legend span { display: flex; align-items: center; gap: 5px; }
+    .model-ld { width: 18px; height: 2px; border-radius: 1px; display: inline-block; }
+    .model-chart-wrap { position: relative; width: 100%; height: 280px; }
+
+    /* tag */
+    .model-tag {
+        display: inline-flex; align-items: center; gap: 3px;
+        padding: 2px 8px; border-radius: 2px; font-size: 11px; font-weight: 600;
+    }
+    .model-tag-purple { background: rgba(124,111,247,.12); color: var(--mc-purple); }
+    .model-tag-blue   { background: rgba(74,158,245,.12);  color: #3d8ce8; }
+    .model-tag-green  { background: rgba(77,184,122,.12);  color: #3aa36a; }
+    .model-tag-amber  { background: rgba(240,160,48,.12);  color: #d89020; }
+    .model-tag-red    { background: rgba(232,85,85,.12);   color: #d94545; }
+
+    /* alert */
+    .model-alert {
+        border-radius: 2px; padding: 12px 14px; font-size: 12px; line-height: 1.7;
+        margin: 10px 0; border-left: 3px solid transparent; background: #fff;
+    }
+    .model-alert-blue  { border-color: var(--mc-blue);   background: rgba(74,158,245,.05);  color: #4e5969; }
+    .model-alert-amber { border-color: var(--mc-amber);  background: rgba(240,160,48,.05);  color: #4e5969; }
+    .model-alert-red   { border-color: var(--mc-red);    background: rgba(232,85,85,.05);   color: #4e5969; }
+    .model-alert-green { border-color: var(--mc-green);  background: rgba(77,184,122,.05);  color: #4e5969; }
+    .model-alert b { color: #1d2129; font-weight: 600; }
+
+    /* 预警卡片 */
+    .model-wl-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .model-wl {
+        border: 1px solid #e5e6eb; border-radius: 2px;
+        padding: 12px; text-align: center; background: #fff;
+    }
+    .model-wl-icon { font-size: 20px; margin-bottom: 4px; }
+    .model-wl-name { font-size: 12px; font-weight: 600; margin-bottom: 3px; color: #1d2129; }
+    .model-wl-range { font-size: 11px; color: #86909c; margin-bottom: 6px; line-height: 1.5; }
+    .model-wl-action { font-size: 11px; color: #4e5969; line-height: 1.6; }
+    .model-wl-red    { border-color: rgba(232,85,85,.3);   background: rgba(232,85,85,.03);  }
+    .model-wl-amber  { border-color: rgba(240,160,48,.3);  background: rgba(240,160,48,.03);  }
+    .model-wl-green  { border-color: rgba(77,184,122,.3);  background: rgba(77,184,122,.03);  }
+
+    /* rule */
+    .model-rule-row { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 10px; }
+    .model-rule-num {
+        background: #e8f0ff; border: 1px solid #c9d6f0;
+        color: #165dff; font-size: 11px; font-weight: 700;
+        width: 22px; height: 22px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0; margin-top: 1px;
+    }
+    .model-rule-body { font-size: 12px; color: #4e5969; line-height: 1.8; }
+    .model-rule-body b { color: #1d2129; font-weight: 600; }
+
+    /* card */
+    .model-card {
+        background: #fff; border: 1px solid #e5e6eb;
+        border-radius: 2px; padding: 16px 18px;
+    }
+    .model-card-sm {
+        background: #f7f8fa; border: 1px solid #e5e6eb;
+        border-radius: 2px; padding: 12px 14px;
+    }
+
+    /* monthly table overrides */
+    .model-tbl-wrap { overflow-x: auto; }
+    .model-tbl-wrap table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .model-tbl-wrap thead th {
+        background: #f7f8fa; padding: 7px 10px; text-align: left;
+        font-size: 11px; font-weight: 600; color: #4e5969;
+        border-bottom: 1px solid #e5e6eb; white-space: nowrap;
+        position: static; /* override dashboard sticky */
+    }
+    .model-tbl-wrap tbody td {
+        padding: 7px 10px; border-bottom: 1px solid #e5e6eb; vertical-align: middle;
+    }
+    .model-tbl-wrap tbody tr:last-child td { border-bottom: none; }
+    .model-tbl-wrap tbody tr:hover td { background: rgba(22,93,255,.02); }
+
+    .model-row-red { background: rgba(232,85,85,.03); }
+
+    .model-btn-primary {
+        padding: 7px 18px; background: var(--mc-purple); color: #fff;
+        border: none; border-radius: 2px; font-size: 13px; font-weight: 600;
+        cursor: pointer; letter-spacing: .02em;
+    }
+    .model-btn-primary:hover { opacity: .9; }
+
+    @media (max-width: 640px) {
+        .model-metrics-row { grid-template-columns: 1fr 1fr; }
+        .model-wl-grid { grid-template-columns: 1fr; }
+        .model-replen-val { font-size: 26px; }
+    }
+</style>
+</head>
+<body>
+
+<!-- ═══ 登录遮罩层 ═══ -->
+<div id="loginOverlay" class="login-overlay hidden">
+    <div class="login-card">
+        <div class="login-title">备货模型</div>
+        <div class="login-subtitle">请输入账号密码登录</div>
+        <input type="text" id="loginUser" class="login-input" placeholder="用户名" autocomplete="username">
+        <input type="password" id="loginPass" class="login-input" placeholder="密码" autocomplete="current-password">
+        <button id="loginBtn" class="login-btn" onclick="doLogin()">登 录</button>
+        <div id="loginError" class="login-error"></div>
+        <div class="login-footer">Acme Zone 数据看板</div>
+    </div>
+</div>
+
+<!-- ═══ 侧边栏 ═══ -->
+<div class="sidebar">
+    <div class="sidebar-logo"></div>
+    <a class="nav-item" href="index.html">
+        <div class="nav-icon-placeholder"></div>首页
+    </a>
+    <a class="nav-item" href="index.html">
+        <div class="nav-icon-placeholder"></div>销售
+    </a>
+    <a class="nav-item" href="inventory.html">
+        <div class="nav-icon-placeholder"></div>库存
+    </a>
+    <a class="nav-item active" href="vc_replenishment_model.html">
+        <div class="nav-icon-placeholder" style="background-color:#fff;"></div>发货
+    </a>
+    <a class="nav-item" href="#">
+        <div class="nav-icon-placeholder"></div>客服
+    </a>
+    <a class="nav-item" href="#">
+        <div class="nav-icon-placeholder"></div>跟卖
+    </a>
+    <a class="nav-item erp" href="#">
+        <div class="nav-icon-placeholder" style="background-color:#fff;"></div>ERP
+    </a>
+</div>
+
+<!-- ═══ 主内容区 ═══ -->
+<div class="main-container">
+    <header class="top-header">
+        <div class="header-tabs">
+            <div class="tab active">备货模型 · 总量预测<div class="close-icon-placeholder"></div></div>
+        </div>
+        <div class="header-right">
+            <span class="model-update-note">📡 数据于每月2号 15:00 更新</span>
+            <div class="user-avatar-placeholder"></div>
+        </div>
+    </header>
+
+    <main class="content-scrollable">
+
+        <!-- ═══ 页面标题 ═══ -->
+        <div class="page-title-row">
+            <div class="title-group">
+                <h2>备货模型 · 总量预测<div style="width:16px;height:16px;background:var(--mc-purple);border-radius:2px;display:inline-block;vertical-align:middle;"></div></h2>
+                <div class="update-time" style="margin-left: 60px;">更新时间
+                    <span id="target-time"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══ 核心参数 ═══ -->
+        <div class="model-input-section">
+            <div class="sec-title">核心参数 · 每周更新</div>
+            <div class="model-input-grid">
+                <div class="model-input-field">
+                    <label>FBA 总库存（pcs）</label>
+                    <input type="number" id="i-fba" value="250000">
+                    <div class="model-input-note">当前在库总量</div>
+                </div>
+                <div class="model-input-field">
+                    <label>近7天实际日均 n（件/天）</label>
+                    <input type="number" id="i-n" value="2067">
+                    <div class="model-input-note">ERP 拉取，每周更新</div>
+                </div>
+                <div class="model-input-field">
+                    <label>混合权重 w · 当前 <b id="lbl-w" style="color:var(--mc-purple)">0.50</b></label>
+                    <div class="model-slider-wrap">
+                        <input type="range" id="i-w" min="0" max="1" step="0.05" value="0.5" oninput="onW(this.value)">
+                        <div class="model-slider-zones"><span>极端（重预测）</span><span>推荐 [0.3~0.7]</span><span>极端（重实际）</span></div>
+                    </div>
+                    <div class="model-input-note">n 的权重，右拉=更信实际销量</div>
+                </div>
+            </div>
+            <div style="height:8px"></div>
+            <div class="model-input-grid" style="grid-template-columns: repeat(auto-fit, minmax(120px, 1fr))">
+                <div class="model-input-field">
+                    <label>补货周期 LeadTime（天）</label>
+                    <input type="number" id="i-lead" value="75">
+                    <div class="model-input-note">采购 + 头程合计</div>
+                </div>
+                <div class="model-input-field">
+                    <label>y 下限 · 触发补货（天）</label>
+                    <input type="number" id="i-ymin" value="90">
+                    <div class="model-input-note">低于此值必须补货</div>
+                </div>
+                <div class="model-input-field">
+                    <label>y 上限 · 停止发货（天）</label>
+                    <input type="number" id="i-ymax" value="120">
+                    <div class="model-input-note">超过此值停止发货</div>
+                </div>
+                <div class="model-input-field">
+                    <label>补货目标天数 T（天）</label>
+                    <input type="number" id="i-tgt" value="105">
+                    <div class="model-input-note">建议值 105</div>
+                </div>
+            </div>
+
+            <div style="height:10px"></div>
+            <div class="model-collapse-btn open" onclick="toggleFc()">
+                <span class="arrow">▶</span> 预测数据（6个月 · forecast.py 输出 · 每月2号更新）
+            </div>
+            <div class="model-collapse-body" id="fc-body" style="max-height:160px">
+                <div class="model-input-grid" style="grid-template-columns: repeat(3, 1fr)">
+                    <div class="model-input-field"><label>预测月 1</label><input type="number" id="i-fc0" value="69891"><div class="model-input-note" id="fc-lbl-0">2026-06</div></div>
+                    <div class="model-input-field"><label>预测月 2</label><input type="number" id="i-fc1" value="90186"><div class="model-input-note" id="fc-lbl-1">2026-07</div></div>
+                    <div class="model-input-field"><label>预测月 3</label><input type="number" id="i-fc2" value="61287"><div class="model-input-note" id="fc-lbl-2">2026-08</div></div>
+                    <div class="model-input-field"><label>预测月 4</label><input type="number" id="i-fc3" value="53201"><div class="model-input-note" id="fc-lbl-3">2026-09</div></div>
+                    <div class="model-input-field"><label>预测月 5</label><input type="number" id="i-fc4" value="63831"><div class="model-input-note" id="fc-lbl-4">2026-10</div></div>
+                    <div class="model-input-field"><label>预测月 6</label><input type="number" id="i-fc5" value="74901"><div class="model-input-note" id="fc-lbl-5">2026-11</div></div>
+                </div>
+            </div>
+
+            <div style="text-align:right;margin-top:10px">
+                <button onclick="rebuild()" class="model-btn-primary">更新计算 →</button>
+            </div>
+        </div>
+
+        <!-- ═══ 核心指标 ═══ -->
+        <div class="model-metrics-row" id="metrics-grid"></div>
+
+        <!-- ═══ N/M 比值 ═══ -->
+        <div id="ratio-monitor"></div>
+
+        <!-- ═══ 信号横幅 ═══ -->
+        <div id="signal-banner"></div>
+
+        <!-- ═══ 补货建议 ═══ -->
+        <div class="model-section-title">补货建议</div>
+        <div class="model-replen-card" id="replen-card"></div>
+
+        <!-- ═══ Tabs ═══ -->
+        <div class="model-tab-bar" style="margin-bottom:0">
+            <button class="model-tab-btn active" onclick="switchTab('monthly',this)">逐月推演</button>
+            <button class="model-tab-btn" onclick="switchTab('chart',this)">预测走势图</button>
+            <button class="model-tab-btn" onclick="switchTab('rules',this)">计算规则</button>
+            <button class="model-tab-btn" onclick="switchTab('warning',this)">预警阈值</button>
+        </div>
+
+        <!-- Tab: 逐月推演 -->
+        <div class="model-tab-panel active" id="tab-monthly">
+            <div class="model-card" style="border-top:none;border-radius:0 0 2px 2px">
+                <div class="model-tbl-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>月份</th><th>预测月销量</th><th>当月日均</th>
+                                <th>滚动前4月m</th><th>月末库存（推演）</th>
+                                <th>推荐发货量</th><th>信号</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbl-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: 预测走势图 -->
+        <div class="model-tab-panel" id="tab-chart">
+            <div class="model-card" style="border-top:none;border-radius:0 0 2px 2px">
+                <div class="model-chart-title">6 个月 · 库存构成叠加 + 需求线</div>
+                <div class="model-legend" id="chart-legend"></div>
+                <div class="model-chart-wrap">
+                    <canvas id="main-chart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: 计算规则 -->
+        <div class="model-tab-panel" id="tab-rules">
+            <div class="model-card" style="border-top:none;border-radius:0 0 2px 2px">
+                <div class="model-rule-row"><div class="model-rule-num">1</div><div class="model-rule-body"><b>n</b> = 近4周实际日均（ERP系统拉取，每周更新）<br>反映当下实际销速，不含活动期异常数据</div></div>
+                <div class="model-rule-row"><div class="model-rule-num">2</div><div class="model-rule-body"><b>m</b> = sum(未来前4个月预测月销量) / 120<br>来自 forecast.py 的 Holt-Winters 季节模型，自动内化PD旺季/淡季</div></div>
+                <div class="model-rule-row"><div class="model-rule-num">3</div><div class="model-rule-body"><b>x</b> = n × w + m × (1−w)<br>混合日均 = 实际×实际权重 + 预测×预测权重</div></div>
+                <div class="model-rule-row"><div class="model-rule-num">4</div><div class="model-rule-body"><b>y</b> = FBA总库存 / x<br>库存覆盖天数，单一指标替代旧系统的双池拆分</div></div>
+                <div class="model-rule-row"><div class="model-rule-num">5</div><div class="model-rule-body"><b>信号判断：</b><br>y &lt; y下限 → 🔴 必须补货，补货量 Q = (T−y)×x（钳制 ≤ x×LeadTime）<br>y下限 ≤ y ≤ y上限 → 🟢 正常<br>y &gt; y上限 → 🟡 停止发货</div></div>
+                <div class="model-rule-row"><div class="model-rule-num">6</div><div class="model-rule-body"><b>逐月推演（发货即计入）：</b><br>推荐发货 = 当月日均 × T − 上月末库存（max≥0）<br>月末库存 = 上月末库存 − 当月日均×天数 + 推荐发货<br>信号：推荐发货&lt;0 → 🔴冗余 | ≥0 → 🟢正常<br><span style="color:#86909c">注：发货即计入海外库存——月度粒度下假设本月发货可视为已纳入库存计划</span></div></div>
+                <div class="model-alert model-alert-green">
+                    <b>为什么删除旧参数？</b><br>
+                    活动锁定库存 / 活动结束月份 / 当月季节系数 —— 这三个在Holt-Winters模型中已被内化。模型自动学习历史季节性模式（含PD峰值），外部再叠加会导致双重计数。<br>
+                    安全库存底线（30天）被 y 下限覆盖，逻辑更一致。
+                </div>
+                <div class="model-alert model-alert-amber">
+                    <b>滚动预测机制：</b>当 PD（7月旺季）在预测窗口内时，m 被拉升 → 触发提前备货。PD 离开窗口后，m 自然下降 → 防止过度补货。无需人工干预。
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: 预警阈值 -->
+        <div class="model-tab-panel" id="tab-warning">
+            <div class="model-card" style="border-top:none;border-radius:0 0 2px 2px">
+                <div class="model-wl-grid" id="wl-grid"></div>
+                <div style="height:14px"></div>
+                <b style="font-size:13px;color:#1d2129">每周 SOP（4步）</b>
+                <div style="height:6px"></div>
+                <div class="model-rule-row"><div class="model-rule-num">1</div><div class="model-rule-body"><b>更新 n</b>（近28天销量 ÷ 28）和 <b>FBA 库存</b>。注意排除活动期异常天数。</div></div>
+                <div class="model-rule-row"><div class="model-rule-num">2</div><div class="model-rule-body"><b>确认预测数据</b>，每月2号模型自动更新，核对前4月 m 值是否合理。</div></div>
+                <div class="model-rule-row"><div class="model-rule-num">3</div><div class="model-rule-body"><b>观察信号灯 + n/m 比值。</b><br>🟡 过度库存 → 停止发货 + 评估清货<br>🟢 正常 → 维持节奏<br>🔴 库存不足 → 计算补货量 Q，当天下单</div></div>
+                <div class="model-rule-row"><div class="model-rule-num">4</div><div class="model-rule-body"><b>极端场景：</b>销售部门 vs 供应链部门分歧时，可拖动权重 w 到极端值评估风险边界。</div></div>
+
+                <div class="model-card-sm" style="margin-top:12px">
+                    <b style="font-size:12px;color:#1d2129">硬性规则</b>
+                    <div style="height:6px"></div>
+                    <div class="model-tbl-wrap"><table>
+                        <thead><tr><th>时间</th><th>动作</th><th>原因</th></tr></thead>
+                        <tbody>
+                            <tr><td><b>每月2号 15:00</b></td><td>forecast.py 自动运行，更新预测</td><td>上月数据完整后训练最准</td></tr>
+                            <tr><td><b>每年6月初</b></td><td>确认PD库存是否覆盖7月峰值</td><td>PD旺季m值提前3个月拉升</td></tr>
+                            <tr><td><b>每年8月初</b></td><td>观察m值回落后库存冗余风险</td><td>PD离开窗口，m下降</td></tr>
+                            <tr><td><b>n/m 偏差 &gt; ±15%</b></td><td>立即复查，销速突变或模型失效</td><td>>15%对全渠道是极大风险</td></tr>
+                        </tbody></table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+</div>
+
+<!-- ═══ 脚本 ═══ -->
+<script src="js/common.js"></script>
+<script>
+const DAYS_IN = {1:31,2:28,3:31,4:30,5:31,6:30,7:31,8:31,9:30,10:31,11:30,12:31};
+let CH = {};
+function dc(id){ if(CH[id]){ CH[id].destroy(); delete CH[id]; } }
+
+function getFC(idx){ return +document.getElementById('i-fc'+idx).value || 0; }
+function parseYM(s){ var p=s.split('-'); return [parseInt(p[0]),parseInt(p[1])]; }
+
+function computeM(fc){ var s=0; for(var i=0;i<4;i++) s+=fc[i]; return s/120; }
+
+function getSig(days, ymin, ymax){
+    if(days<0) return {text:'⚠️ 库存耗尽', tag:'model-tag-red',   bg:'rgba(232,85,85,.05)',  fg:'#d94545', border:'rgba(232,85,85,.25)'};
+    if(days<ymin) return {text:'🔴 必须补货', tag:'model-tag-red', bg:'rgba(232,85,85,.05)',  fg:'#d94545', border:'rgba(232,85,85,.25)'};
+    if(days>ymax) return {text:'🟡 停止发货', tag:'model-tag-amber', bg:'rgba(240,160,48,.05)', fg:'#d89020', border:'rgba(240,160,48,.25)'};
+    if(days<=ymin+10) return {text:'🟢 正常（偏低）',tag:'model-tag-green', bg:'rgba(77,184,122,.05)', fg:'#3aa36a', border:'rgba(77,184,122,.25)'};
+    return {text:'🟢 正常', tag:'model-tag-green', bg:'rgba(77,184,122,.05)', fg:'#3aa36a', border:'rgba(77,184,122,.25)'};
+}
+
+function rebuild(){
+    var fba  = +document.getElementById('i-fba').value  || 250000;
+    var n    = +document.getElementById('i-n').value    || 2067;
+    var wRaw = +document.getElementById('i-w').value;
+    var w    = isNaN(wRaw) ? 0.5 : wRaw;
+    var lead = +document.getElementById('i-lead').value || 75;
+    var ymin = +document.getElementById('i-ymin').value || 90;
+    var ymax = +document.getElementById('i-ymax').value || 120;
+    var tgt  = +document.getElementById('i-tgt').value  || 105;
+
+    var fc = [];
+    for(var i=0;i<6;i++) fc.push(getFC(i));
+
+    var m = computeM(fc);
+    var x = Math.round(n*w + m*(1-w));
+    var y = x>0 ? Math.round(fba/x) : 999;
+    var sig = getSig(y, ymin, ymax);
+
+    var fcMonths = [];
+    for(var i=0;i<6;i++){
+        var lbl = document.getElementById('fc-lbl-'+i);
+        fcMonths.push(lbl.textContent);
+    }
+
+    // ── Metrics ──
+    var safeCycle = ymin - lead;
+    var scColor, scLabel;
+    if(safeCycle<=7){ scColor='red'; scLabel='断货风险'; }
+    else if(safeCycle<=15){ scColor='amber'; scLabel='偏低'; }
+    else if(safeCycle<=28){ scColor='green'; scLabel='合理'; }
+    else if(safeCycle<=40){ scColor='amber'; scLabel='偏高'; }
+    else { scColor='red'; scLabel='占用过多资金'; }
+
+    document.getElementById('metrics-grid').innerHTML = [
+        {l:'滚动预测 m', v:Math.round(m).toLocaleString(), c:'purple', sub:'前4月日均（件/天）'},
+        {l:'混合预估日均 x', v:x.toLocaleString(), c:'purple', sub:'n='+n.toLocaleString()+', w='+w.toFixed(2)},
+        {l:'库存覆盖天数 y', v:y+'天', c:(y<ymin?'red':y>ymax?'amber':'green'), sub:'FBA='+(fba/1000).toFixed(0)+'k÷'+x.toLocaleString()},
+        {l:'n/m 比值', v:(m>0?(n/m).toFixed(3):'—'), c:(m>0&&Math.abs(n/m-1)>0.15?'red':'blue'), sub:'安全区间 [0.85, 1.15]'},
+        {l:'安全周期', v:safeCycle+'天', c:scColor, sub:ymin+'−'+lead+'='+safeCycle+' · '+scLabel}
+    ].map(function(m){
+        return '<div class="model-metric-card'+(m.c==='red'&&m.l==='n/m 比值'?' warn':'')+'"><div class="model-metric-label">'+m.l+'</div><div class="model-metric-val '+m.c+'">'+m.v+'</div><div class="model-metric-sub">'+m.sub+'</div></div>';
+    }).join('');
+
+    // ── N/M Ratio ──
+    var ratioDiv = document.getElementById('ratio-monitor');
+    if(m>0){
+        var ratio = n/m;
+        var ratioWarn = Math.abs(ratio-1) > 0.15;
+        if(ratioWarn){
+            ratioDiv.innerHTML = '<div class="model-ratio-box warn">'+
+                '<b style="color:#d94545">⚠️ 预警：n/m 比值 = '+ratio.toFixed(3)+'</b>，偏离基准超过 ±15%<br>'+
+                '<span style="color:#86909c;font-size:11px">'+(ratio<1?'实际销速显著低于预测，需警惕库存冗余风险':'实际销速显著高于预测，需警惕断货风险')+' · 建议逐一核查近期销量趋势</span></div>';
+        } else {
+            ratioDiv.innerHTML = '<div class="model-ratio-box" style="border-color:rgba(77,184,122,.3);background:rgba(77,184,122,.04)">'+
+                '<span style="color:#3aa36a">✓ n/m 比值 = '+ratio.toFixed(3)+'</span>，在安全区间 [0.85, 1.15] 内 · 实际与预测方向一致</div>';
+        }
+    } else { ratioDiv.innerHTML = ''; }
+
+    // ── Signal Banner ──
+    var sb = document.getElementById('signal-banner');
+    var actText = '';
+    if(y<ymin){ actText = '　低于下限 '+ymin+'天（=补货周期），必须立即补货！计算补货量见下方卡片。'; }
+    else if(y>ymax){ actText = '　超过上限 '+ymax+'天，资金沉淀风险，建议停止发货。'; }
+    else if(y<=ymin+10){ actText = '　接近补货触发线，建议开始准备下单。'; }
+    else { actText = '　库存健康，按计划执行。'; }
+    sb.style.cssText = 'background:'+sig.bg+';border:1px solid '+sig.border+';border-radius:2px;padding:12px 16px;margin-bottom:10px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;';
+    sb.innerHTML = '<span class="model-signal-icon" style="color:'+sig.fg+'">'+sig.text+'</span>'+
+        '<div style="font-size:12px;line-height:1.7;flex:1;color:'+sig.fg+'">FBA 库存 <b>'+(fba/1000).toFixed(0)+'k pcs</b> ÷ 混合日均 <b>'+x.toLocaleString()+'</b> = <b>'+y+'天</b> 覆盖'+actText+'</div>';
+
+    // ── Replenishment Card ──
+    var repCard = document.getElementById('replen-card');
+    if(y<ymin){
+        var Q = Math.round((tgt-y)*x);
+        var Qcap = Math.round(x*lead);
+        var Qclamped = Math.max(0, Math.min(Q, Qcap));
+        var clamped = Qclamped<Q;
+        repCard.style.display = 'block';
+        repCard.innerHTML = '<div class="model-replen-val">'+Qclamped.toLocaleString()+' <span>pcs</span></div>'+
+            '<div class="model-replen-detail">'+
+            '<b>公式：</b>Q = ('+tgt+'天 − '+y+'天) × '+x.toLocaleString()+' = '+Q.toLocaleString()+' pcs<br>'+
+            (clamped?'<b>钳制：</b>min('+Q.toLocaleString()+', '+x.toLocaleString()+'×'+lead+'天) = <b style="color:var(--mc-amber)">'+Qclamped.toLocaleString()+' pcs</b>（不超过一个补货周期的需求）<br>':'')+
+            '<b>补货后库存：</b>'+(fba+Qclamped).toLocaleString()+' pcs → 覆盖 '+(Math.round((fba+Qclamped)/x))+' 天<br>'+
+            '<b>最晚下单：</b>7天内 | <b>预计到货：</b>83天后</div>';
+    } else if(y>ymax){
+        repCard.style.display = 'block';
+        repCard.innerHTML = '<div style="font-size:26px;font-weight:700;color:var(--mc-amber)">⛔ 停止发货</div>'+
+            '<div class="model-replen-detail">'+
+            '当前覆盖 '+y+' 天 > 上限 '+ymax+' 天，库存严重冗余。'+
+            '建议评估清货方案（降价/Coupon/Removal）。<br>'+
+            '当库存消耗至 <b>'+(Math.round(x*ymax)).toLocaleString()+' pcs</b> 以下时恢复发货。</div>';
+    } else { repCard.style.display = 'none'; }
+
+    // ── Monthly Table ──
+    var tbody = document.getElementById('tbl-body');
+    var now = new Date();
+    var curYear = now.getFullYear(), curMonth = now.getMonth()+1, curDay = now.getDate();
+    var inv = fba, rows = '';
+    var mValues = [], chartShip = [], chartInvEnd = [], chartConsume = [];
+
+    for(var i=0;i<6;i++){
+        var pred = fc[i], mLabel = fcMonths[i];
+        var ym = parseYM(mLabel);
+        var daysTotal = DAYS_IN[ym[1]] || 30;
+        var daily = daysTotal>0 ? Math.round(pred/daysTotal) : 0;
+
+        var consumeDays;
+        if(i===0 && ym[0]===curYear && ym[1]===curMonth){
+            consumeDays = Math.max(1, daysTotal - curDay + 1);
+        } else { consumeDays = daysTotal; }
+
+        var mm = 0;
+        if(i+3<6){ var s4=0; for(var j=i;j<i+4;j++) s4+=fc[j]; mm = Math.round(s4/120); }
+        mValues.push(mm);
+
+        var rawShip = daily * tgt - inv;
+        var shipQty = Math.max(0, Math.round(rawShip));
+        var isRedundant = rawShip < 0;
+
+        inv = Math.round(inv - daily * consumeDays + shipQty);
+        if(inv<0) inv = 0;
+
+        chartShip.push(shipQty);
+        chartInvEnd.push(inv);
+        chartConsume.push(Math.round(daily * consumeDays));
+
+        var rowClass = isRedundant ? 'model-row-red' : '';
+        var signalHtml = isRedundant
+            ? '<span class="model-tag model-tag-red">🔴 冗余</span>'
+            : '<span class="model-tag model-tag-green">🟢 正常</span>';
+        var shipDisplay = shipQty>0
+            ? '<span style="color:var(--mc-purple);font-weight:700">'+shipQty.toLocaleString()+'</span>'
+            : '<span style="color:#86909c">'+shipQty.toLocaleString()+'</span>';
+
+        rows += '<tr class="'+rowClass+'">'+
+            '<td style="font-weight:600">'+mLabel+(i===0?' <span style="font-size:10px;color:#86909c">剩'+consumeDays+'天</span>':'')+'</td>'+
+            '<td>'+Math.round(pred).toLocaleString()+'</td>'+
+            '<td>'+daily.toLocaleString()+'</td>'+
+            '<td style="'+(i+3<6?'color:var(--mc-purple);font-weight:600':'color:#86909c')+'">'+(mm>0?mm.toLocaleString()+' 件/天':'—')+'</td>'+
+            '<td style="font-weight:600">'+inv.toLocaleString()+'</td>'+
+            '<td>'+shipDisplay+'</td>'+
+            '<td>'+signalHtml+'</td></tr>';
+    }
+    tbody.innerHTML = rows;
+
+    // ── Warning Levels ──
+    document.getElementById('wl-grid').innerHTML = [
+        {icon:'🔴',name:'必须补货',range:'< '+ymin+' 天',action:'立即计算补货量<br>当天下单<br>补到 '+tgt+' 天',cls:'model-wl-red'},
+        {icon:'🟢',name:'正常',range:ymin+'~'+ymax+' 天',action:'按计划执行<br>每周检查一次<br>'+ymin+'~'+(ymin+10)+'天预提醒',cls:'model-wl-green'},
+        {icon:'🟡',name:'停止发货',range:'> '+ymax+' 天',action:'立即停止发货<br>评估清货方案<br>降价/Coupon/Removal',cls:'model-wl-amber'}
+    ].map(function(l){
+        return '<div class="model-wl '+l.cls+'"><div class="model-wl-icon">'+l.icon+'</div><div class="model-wl-name">'+l.name+'</div><div class="model-wl-range">'+l.range+'</div><div class="model-wl-action">'+l.action+'</div></div>';
+    }).join('');
+
+    // ── Chart (前4个月 · 三段叠加) ──
+    document.getElementById('chart-legend').innerHTML = [
+        '<span><span class="model-ld" style="background:rgba(124,111,247,.65)"></span>建议发货量</span>',
+        '<span><span class="model-ld" style="background:rgba(74,158,245,.55)"></span>月末库存量</span>',
+        '<span><span class="model-ld" style="background:rgba(134,144,156,.35)"></span>本月消耗</span>',
+        '<span><span class="model-ld" style="background:#E85555;border-top:1.5px dashed #E85555;height:0"></span>下限 '+ymin+'天</span>',
+        '<span><span class="model-ld" style="background:#F0A030;border-top:1.5px dashed #F0A030;height:0"></span>上限 '+ymax+'天</span>'
+    ].join('');
+
+    var N = 6;
+    var chLabels = fcMonths.slice(0,N);
+    var chShip = chartShip.slice(0,N);
+    var chInv  = chartInvEnd.slice(0,N);
+    var chCons = chartConsume.slice(0,N);
+    var lowerLine = Array(N).fill(Math.round(x*ymin));
+    var upperLine = Array(N).fill(Math.round(x*ymax));
+
+    dc('main-chart');
+    CH['main-chart'] = new Chart(document.getElementById('main-chart'), {
+        type: 'bar',
+        data: {
+            labels: chLabels,
+            datasets: [
+                {label:'建议发货量', data:chShip, backgroundColor:'rgba(124,111,247,.65)', borderColor:'#7C6FF7', borderWidth:1, stack:'s', order:3},
+                {label:'月末库存量', data:chInv,  backgroundColor:'rgba(74,158,245,.55)',  borderColor:'#4A9EF5', borderWidth:1, stack:'s', order:3},
+                {label:'本月消耗',   data:chCons, backgroundColor:'rgba(134,144,156,.35)',  borderColor:'#86909c', borderWidth:1, stack:'s', order:3},
+                {label:'下限('+ymin+'天)', data:lowerLine, type:'line', borderColor:'#E85555', backgroundColor:'transparent', pointRadius:0, borderWidth:1.5, borderDash:[5,3], yAxisID:'y', order:1},
+                {label:'上限('+ymax+'天)', data:upperLine, type:'line', borderColor:'#F0A030', backgroundColor:'transparent', pointRadius:0, borderWidth:1.5, borderDash:[5,3], yAxisID:'y', order:1}
+            ]
+        },
+        options: {
+            responsive:true, maintainAspectRatio:false, animation:false,
+            plugins:{
+                legend:{display:false},
+                tooltip:{mode:'index',intersect:false,
+                    callbacks:{label:function(ctx){
+                        var v=ctx.parsed.y; if(v==null)return null;
+                        return '  '+ctx.dataset.label+': '+Math.round(v).toLocaleString()+' pcs';
+                    }}
+                }
+            },
+            scales:{
+                x:{ticks:{font:{size:11},color:'#86909c'},grid:{color:'#f0f0f0'},stacked:true},
+                y:{
+                    type:'linear',position:'left',stacked:true,
+                    ticks:{font:{size:11},color:'#86909c',callback:function(v){return v>=1000?(v/1000).toFixed(0)+'k':v;}},
+                    grid:{color:'#f0f0f0'},
+                    title:{display:true,text:'库存构成（pcs）',font:{size:10},color:'#86909c'}
+                }
+            }
+        }
+    });
+}
+
+function onW(val){
+    document.getElementById('lbl-w').textContent = parseFloat(val).toFixed(2);
+    rebuild();
+}
+function toggleFc(){
+    var btn = document.querySelector('.model-collapse-btn');
+    var body = document.getElementById('fc-body');
+    btn.classList.toggle('open');
+    body.classList.toggle('closed');
+}
+function switchTab(name, btn){
+    document.querySelectorAll('.model-tab-btn').forEach(function(b){b.classList.remove('active');});
+    document.querySelectorAll('.model-tab-panel').forEach(function(p){p.classList.remove('active');});
+    btn.classList.add('active');
+    document.getElementById('tab-'+name).classList.add('active');
+    if(name==='chart') rebuild();
+}
+
+// init
+document.querySelectorAll('.model-input-section input').forEach(function(el){
+    el.addEventListener('input', rebuild);
+});
+
+// 自动读取 inventory 页面的海外总库存（localStorage 跨页面共享）
+(function autoLoadFba(){
+    try {
+        var saved = localStorage.getItem('inv_overseas_total');
+        if(saved && parseInt(saved)>0){
+            document.getElementById('i-fba').value = saved;
+        }
+    } catch(e) {}
+})();
+
+rebuild();
+window.addEventListener('load', startTimeDisplay);
+</script>
+</body>
+</html>

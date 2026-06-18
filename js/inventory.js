@@ -87,58 +87,47 @@ async function fetchInventoryData() {
 // ==================== 卡片计算与渲染 ====================
 
 function calculateAndRenderCards(records) {
-    let totalWithTransit = 0, totalWithoutTransit = 0, totalOverseas = 0;
-    let totalSupplierStock = 0, totalSupplierTransit = 0, skuCount = 0;
-    let alertCount = 0;
+    let totalWithTransit = 0, totalOverseas = 0;
+    let totalSupplierStock = 0, totalSupplierTransit = 0, totalJiegeStock = 0, skuCount = 0;
     const seenSku = new Set();
 
     records.forEach(record => {
         const f = record.fields;
         if (!f || Object.keys(f).length === 0) return;
 
-        const withTransit = parseInt(f[FIELD_MAP['包含生产在途']]) || 0;
-        const withoutTransit = parseInt(f[FIELD_MAP['不含生产在途']]) || 0;
-        const overseas = parseInt(f[FIELD_MAP['海外库存总量']]) || 0;
-        const supplierStock = parseInt(f[FIELD_MAP['供应商库存总量']]) || 0;
-        const supplierTransit = parseInt(f[FIELD_MAP['供应商在途总量']]) || 0;
-
-        totalWithTransit += withTransit;
-        totalWithoutTransit += withoutTransit;
-        totalOverseas += overseas;
-        totalSupplierStock += supplierStock;
-        totalSupplierTransit += supplierTransit;
+        totalWithTransit += parseInt(f[FIELD_MAP['包含生产在途']]) || 0;
+        totalOverseas += parseInt(f[FIELD_MAP['海外库存总量']]) || 0;
+        totalSupplierStock += parseInt(f[FIELD_MAP['供应商库存总量']]) || 0;
+        totalSupplierTransit += parseInt(f[FIELD_MAP['供应商在途总量']]) || 0;
+        totalJiegeStock += parseInt(f[FIELD_MAP['杰戈工厂库存']]) || 0;
 
         const sku = f[FIELD_MAP['MSKU']];
         if (sku && !seenSku.has(sku)) {
             seenSku.add(sku);
             skuCount++;
         }
-
-        // 库存预警：不含在途库存为 0 且 SKU 存在
-        if (withoutTransit <= 0 && sku) {
-            alertCount++;
-        }
     });
 
+    // SKU数量（不变）
     document.getElementById('card-sku-count').innerText = skuCount.toLocaleString();
-    document.getElementById('card-sku-footer').innerHTML = `<span>活跃SKU</span><span>共 ${skuCount} 个</span>`;
 
+    // 全渠道总库存 = 包含生产在途 求和
     document.getElementById('card-sellable').innerText = totalWithTransit.toLocaleString();
-    document.getElementById('card-sellable-footer').innerHTML = `<span>含在途总量</span><span>${totalWithTransit.toLocaleString()} 件</span>`;
 
-    document.getElementById('card-unsellable').innerText = totalWithoutTransit.toLocaleString();
-    document.getElementById('card-unsellable-footer').innerHTML = `<span>不含在途总量</span><span>${totalWithoutTransit.toLocaleString()} 件</span>`;
+    // 海外总库存 = 海外库存总量 求和
+    document.getElementById('card-unsellable').innerText = totalOverseas.toLocaleString();
 
-    document.getElementById('card-inbound').innerText = totalOverseas.toLocaleString();
-    document.getElementById('card-inbound-footer').innerHTML = `<span>海外库存总量</span><span>${totalOverseas.toLocaleString()} 件</span>`;
+    // 供应商仓总库存 = 供应商库存总量 求和
+    document.getElementById('card-inbound').innerText = totalSupplierStock.toLocaleString();
 
-    document.getElementById('card-total-value').innerText = totalSupplierStock.toLocaleString();
-    document.getElementById('card-value-footer').innerHTML = `<span>供应商库存总量</span><span>${totalSupplierStock.toLocaleString()} 件</span>`;
+    // 采购在途 = 供应商在途总量 求和
+    document.getElementById('card-total-value').innerText = totalSupplierTransit.toLocaleString();
 
-    document.getElementById('card-alert-count').innerText = alertCount.toLocaleString();
-    document.getElementById('card-alert-footer').innerHTML = alertCount > 0
-        ? `<span>库存告罄商品</span><span class="trend-down">需补货</span>`
-        : `<span>库存告罄商品</span><span class="trend-up">库存正常</span>`;
+    // 杰戈库存 = 杰戈工厂库存 求和
+    document.getElementById('card-alert-count').innerText = totalJiegeStock.toLocaleString();
+
+    // 持久化海外总库存 → localStorage，供备货模型页面自动读取
+    try { localStorage.setItem('inv_overseas_total', totalOverseas); } catch(e) {}
 }
 
 // ==================== 搜索 / 排序 ====================
