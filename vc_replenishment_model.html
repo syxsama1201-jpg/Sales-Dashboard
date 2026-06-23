@@ -283,8 +283,8 @@
     <a class="nav-item active" href="vc_replenishment_model.html">
         <div class="nav-icon-placeholder" style="background-color:#fff;"></div>发货
     </a>
-    <a class="nav-item" href="#">
-        <div class="nav-icon-placeholder"></div>客服
+    <a class="nav-item" href="history.html">
+        <div class="nav-icon-placeholder"></div>预测
     </a>
     <a class="nav-item" href="#">
         <div class="nav-icon-placeholder"></div>跟卖
@@ -371,16 +371,18 @@
             </div>
             <div class="model-collapse-body" id="fc-body" style="max-height:160px">
                 <div class="model-input-grid" style="grid-template-columns: repeat(3, 1fr)">
-                    <div class="model-input-field"><label>预测月 1</label><input type="number" id="i-fc0" value="69891"><div class="model-input-note" id="fc-lbl-0">2026-06</div></div>
-                    <div class="model-input-field"><label>预测月 2</label><input type="number" id="i-fc1" value="90186"><div class="model-input-note" id="fc-lbl-1">2026-07</div></div>
-                    <div class="model-input-field"><label>预测月 3</label><input type="number" id="i-fc2" value="61287"><div class="model-input-note" id="fc-lbl-2">2026-08</div></div>
-                    <div class="model-input-field"><label>预测月 4</label><input type="number" id="i-fc3" value="53201"><div class="model-input-note" id="fc-lbl-3">2026-09</div></div>
-                    <div class="model-input-field"><label>预测月 5</label><input type="number" id="i-fc4" value="63831"><div class="model-input-note" id="fc-lbl-4">2026-10</div></div>
-                    <div class="model-input-field"><label>预测月 6</label><input type="number" id="i-fc5" value="74901"><div class="model-input-note" id="fc-lbl-5">2026-11</div></div>
+                    <div class="model-input-field"><label>预测月 1</label><input type="number" id="i-fc0" placeholder="输入预测值"><div class="model-input-note" id="fc-lbl-0"></div></div>
+                    <div class="model-input-field"><label>预测月 2</label><input type="number" id="i-fc1" placeholder="输入预测值"><div class="model-input-note" id="fc-lbl-1"></div></div>
+                    <div class="model-input-field"><label>预测月 3</label><input type="number" id="i-fc2" placeholder="输入预测值"><div class="model-input-note" id="fc-lbl-2"></div></div>
+                    <div class="model-input-field"><label>预测月 4</label><input type="number" id="i-fc3" placeholder="输入预测值"><div class="model-input-note" id="fc-lbl-3"></div></div>
+                    <div class="model-input-field"><label>预测月 5</label><input type="number" id="i-fc4" placeholder="输入预测值"><div class="model-input-note" id="fc-lbl-4"></div></div>
+                    <div class="model-input-field"><label>预测月 6</label><input type="number" id="i-fc5" placeholder="输入预测值"><div class="model-input-note" id="fc-lbl-5"></div></div>
                 </div>
             </div>
 
-            <div style="text-align:right;margin-top:10px">
+            <div style="display:flex;justify-content:flex-end;align-items:center;gap:10px;margin-top:10px;">
+                <span id="fc-fetch-status" style="font-size:11px;color:#86909c;display:none;"></span>
+                <button onclick="fetchForecastFromFeishu()" class="model-btn-primary" style="background:var(--mc-green);" id="btn-fetch-fc">🔄 从飞书获取预测</button>
                 <button onclick="rebuild()" class="model-btn-primary">更新计算 →</button>
             </div>
         </div>
@@ -504,6 +506,157 @@ function getSig(days, ymin, ymax){
     if(days>ymax) return {text:'🟡 停止发货', tag:'model-tag-amber', bg:'rgba(240,160,48,.05)', fg:'#d89020', border:'rgba(240,160,48,.25)'};
     if(days<=ymin+10) return {text:'🟢 正常（偏低）',tag:'model-tag-green', bg:'rgba(77,184,122,.05)', fg:'#3aa36a', border:'rgba(77,184,122,.25)'};
     return {text:'🟢 正常', tag:'model-tag-green', bg:'rgba(77,184,122,.05)', fg:'#3aa36a', border:'rgba(77,184,122,.25)'};
+}
+
+// ==================== 预测月份自动更新 ====================
+// 根据当前日期自动生成未来6个月的标签（如 2026-06, 2026-07, ...）
+function updateForecastLabels() {
+    var now = new Date();
+    var year = now.getFullYear();
+    var month = now.getMonth() + 1; // JS月份 0-11 → 1-12
+    for (var i = 0; i < 6; i++) {
+        var m = month + i;
+        var y = year;
+        if (m > 12) { m -= 12; y++; }
+        var lbl = document.getElementById('fc-lbl-' + i);
+        if (lbl) lbl.textContent = y + '-' + (m < 10 ? '0' + m : m);
+    }
+}
+
+// ==================== 预测值 localStorage 持久化 ====================
+var FC_STORAGE_KEY = 'vc_replen_fc_values';
+
+// 从 localStorage 恢复用户填写过的预测值
+function loadForecastValues() {
+    try {
+        var saved = JSON.parse(localStorage.getItem(FC_STORAGE_KEY));
+        if (saved && Array.isArray(saved) && saved.length === 6) {
+            for (var i = 0; i < 6; i++) {
+                var v = saved[i];
+                if (v !== null && v !== undefined && v !== '') {
+                    document.getElementById('i-fc' + i).value = v;
+                }
+            }
+        }
+    } catch(e) {}
+}
+
+// 用户修改预测值后自动保存到 localStorage
+function saveForecastValues() {
+    try {
+        var vals = [];
+        for (var i = 0; i < 6; i++) {
+            vals.push(document.getElementById('i-fc' + i).value);
+        }
+        localStorage.setItem(FC_STORAGE_KEY, JSON.stringify(vals));
+    } catch(e) {}
+}
+
+// ==================== 从飞书历史表格拉取预测值 ====================
+// 读取 /api/history 中 targetAllSku 行的最后 6 个字段，填入预测输入框
+function fetchForecastFromFeishu() {
+    var token = getToken();
+    if (!token) {
+        showLoginOverlay();
+        return;
+    }
+
+    var statusEl = document.getElementById('fc-fetch-status');
+    var btnEl = document.getElementById('btn-fetch-fc');
+    btnEl.disabled = true;
+    btnEl.textContent = '⏳ 获取中...';
+    statusEl.style.display = 'inline';
+    statusEl.textContent = '正在从飞书拉取预测数据...';
+    statusEl.style.color = '#86909c';
+
+    fetch(API_BASE + '/api/history', {
+        headers: { 'Authorization': 'Bearer ' + token }
+    }).then(function(response) {
+        if (response.status === 401) {
+            clearAuth();
+            showLoginOverlay();
+            throw new Error('unauthorized');
+        }
+        return response.json();
+    }).then(function(result) {
+        if (result.status !== 'success' || !result.data || result.data.length === 0) {
+            throw new Error('no_data');
+        }
+
+        // 找 targetAllSku 行（ASIN 字段 === 'targetAllSku'）
+        var targetRecord = null;
+        for (var i = 0; i < result.data.length; i++) {
+            var f = result.data[i].fields;
+            if (f && f['ASIN'] === 'targetAllSku') {
+                targetRecord = f;
+                break;
+            }
+        }
+        if (!targetRecord) {
+            throw new Error('not_found');
+        }
+
+        // 提取所有形如 "XX年X月" 的字段，按年月排序后取最后 6 个
+        var monthEntries = [];
+        Object.keys(targetRecord).forEach(function(key) {
+            var match = key.match(/^(\d{2})年(\d{1,2})月$/);
+            if (match) {
+                var year = parseInt(match[1]) + 2000; // 22→2022, 26→2026
+                var month = parseInt(match[2]);
+                var val = targetRecord[key];
+                if (val !== null && val !== undefined && val !== '') {
+                    monthEntries.push({ year: year, month: month, value: parseFloat(val) || 0 });
+                }
+            }
+        });
+
+        // 按年月升序排序
+        monthEntries.sort(function(a, b) {
+            if (a.year !== b.year) return a.year - b.year;
+            return a.month - b.month;
+        });
+
+        if (monthEntries.length < 6) {
+            throw new Error('too_few');
+        }
+
+        // 取最后 6 个值
+        var last6 = monthEntries.slice(-6);
+        for (var i = 0; i < 6; i++) {
+            document.getElementById('i-fc' + i).value = Math.round(last6[i].value);
+        }
+
+        // 存入 localStorage
+        saveForecastValues();
+
+        // 更新月份标签（确保与飞书数据匹配）
+        updateForecastLabels();
+
+        // 触发重算
+        rebuild();
+
+        statusEl.textContent = '✓ 预测数据已从飞书同步 (' + last6.length + '个月)';
+        statusEl.style.color = '#00b42a';
+    }).catch(function(error) {
+        var msg = '获取预测数据失败';
+        if (error.message === 'unauthorized') {
+            msg = '登录已过期，请刷新页面重新登录';
+        } else if (error.message === 'not_found') {
+            msg = '未找到 targetAllSku 行，请确认飞书表格中包含该行';
+        } else if (error.message === 'no_data') {
+            msg = '飞书表格返回空数据';
+        } else if (error.message === 'too_few') {
+            msg = '飞书表格中数据列不足6列，请确认预测数据已上传';
+        } else if (error) {
+            msg = '获取失败: ' + (error.message || '网络错误');
+        }
+        statusEl.textContent = '✗ ' + msg;
+        statusEl.style.color = '#e85555';
+        console.error('fetchForecastFromFeishu:', error);
+    }).finally(function() {
+        btnEl.disabled = false;
+        btnEl.textContent = '🔄 从飞书获取预测';
+    });
 }
 
 function rebuild(){
@@ -731,9 +884,36 @@ function switchTab(name, btn){
     if(name==='chart') rebuild();
 }
 
-// init
+// ==================== 登录保护 ====================
+
+// 登录成功后由 common.js 调用
+function onLoginSuccess() {
+    updateForecastLabels();
+    loadForecastValues();
+    rebuild();
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    updateForecastLabels();
+    if (isLoggedIn()) {
+        hideLoginOverlay();
+        loadForecastValues();
+        rebuild();
+    } else {
+        showLoginOverlay();
+    }
+});
+
+// ==================== 初始化 ====================
+
 document.querySelectorAll('.model-input-section input').forEach(function(el){
-    el.addEventListener('input', rebuild);
+    el.addEventListener('input', function() {
+        // 如果是6个预测输入框之一，额外持久化到 localStorage
+        if (el.id && /^i-fc[0-5]$/.test(el.id)) {
+            saveForecastValues();
+        }
+        rebuild();
+    });
 });
 
 // 自动读取 inventory 页面的海外总库存（localStorage 跨页面共享）
@@ -746,7 +926,6 @@ document.querySelectorAll('.model-input-section input').forEach(function(el){
     } catch(e) {}
 })();
 
-rebuild();
 window.addEventListener('load', startTimeDisplay);
 </script>
 </body>
