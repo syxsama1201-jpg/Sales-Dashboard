@@ -42,11 +42,13 @@ let currentSearchTerm = '';
 // ==================== 页面初始化 ====================
 
 function onLoginSuccess() {
+    if (!requirePageTag('inventory')) { showLoginOverlay(); return; }
     fetchInventoryData();
 }
 
 document.addEventListener('DOMContentLoaded', function() {
     if (isLoggedIn()) {
+        if (!requirePageTag('inventory')) return;
         hideLoginOverlay();
         fetchInventoryData();
     } else {

@@ -13,11 +13,13 @@ let currentView = 'child'; // 'child' 或 'parent'
 
 // 登录成功后由 common.js 调用
 function onLoginSuccess() {
+    if (!requirePageTag('sales')) { showLoginOverlay(); return; }
     fetchSalesData();
 }
 
 document.addEventListener('DOMContentLoaded', function() {
     if (isLoggedIn()) {
+        if (!requirePageTag('sales')) return;
         hideLoginOverlay();
         fetchSalesData();
     } else {

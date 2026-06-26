@@ -286,8 +286,8 @@
     <a class="nav-item" href="history.html">
         <div class="nav-icon-placeholder"></div>预测
     </a>
-    <a class="nav-item" href="#">
-        <div class="nav-icon-placeholder"></div>跟卖
+    <a class="nav-item" href="duffle-bag-report.html">
+        <div class="nav-icon-placeholder"></div>开发
     </a>
     <a class="nav-item erp" href="#">
         <div class="nav-icon-placeholder" style="background-color:#fff;"></div>ERP
@@ -329,7 +329,7 @@
                 </div>
                 <div class="model-input-field">
                     <label>近7天实际日均 n（件/天）</label>
-                    <input type="number" id="i-n" value="2067">
+                    <input type="number" id="i-n" value="" placeholder="请填写">
                     <div class="model-input-note">ERP 拉取，每周更新</div>
                 </div>
                 <div class="model-input-field">
@@ -525,6 +525,26 @@ function updateForecastLabels() {
 
 // ==================== 预测值 localStorage 持久化 ====================
 var FC_STORAGE_KEY = 'vc_replen_fc_values';
+var PARAMS_STORAGE_KEY = 'vc_replen_params';
+
+function loadSavedParams() {
+    try {
+        var saved = JSON.parse(localStorage.getItem(PARAMS_STORAGE_KEY));
+        if (saved) {
+            if (saved.n !== undefined && saved.n !== null && saved.n !== '') {
+                document.getElementById('i-n').value = saved.n;
+            }
+        }
+    } catch(e) {}
+}
+
+function saveParamValue(id, value) {
+    try {
+        var saved = JSON.parse(localStorage.getItem(PARAMS_STORAGE_KEY)) || {};
+        saved[id] = value;
+        localStorage.setItem(PARAMS_STORAGE_KEY, JSON.stringify(saved));
+    } catch(e) {}
+}
 
 // 从 localStorage 恢复用户填写过的预测值
 function loadForecastValues() {
@@ -661,7 +681,7 @@ function fetchForecastFromFeishu() {
 
 function rebuild(){
     var fba  = +document.getElementById('i-fba').value  || 250000;
-    var n    = +document.getElementById('i-n').value    || 2067;
+    var n    = +document.getElementById('i-n').value    || 0;
     var wRaw = +document.getElementById('i-w').value;
     var w    = isNaN(wRaw) ? 0.5 : wRaw;
     var lead = +document.getElementById('i-lead').value || 75;
@@ -888,7 +908,9 @@ function switchTab(name, btn){
 
 // 登录成功后由 common.js 调用
 function onLoginSuccess() {
+    if (!requirePageTag('replenishment')) { showLoginOverlay(); return; }
     updateForecastLabels();
+    loadSavedParams();
     loadForecastValues();
     rebuild();
 }
@@ -896,7 +918,9 @@ function onLoginSuccess() {
 document.addEventListener('DOMContentLoaded', function() {
     updateForecastLabels();
     if (isLoggedIn()) {
+        if (!requirePageTag('replenishment')) return;
         hideLoginOverlay();
+        loadSavedParams();
         loadForecastValues();
         rebuild();
     } else {
@@ -908,9 +932,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
 document.querySelectorAll('.model-input-section input').forEach(function(el){
     el.addEventListener('input', function() {
-        // 如果是6个预测输入框之一，额外持久化到 localStorage
         if (el.id && /^i-fc[0-5]$/.test(el.id)) {
             saveForecastValues();
+        }
+        if (el.id === 'i-n') {
+            saveParamValue('n', el.value);
         }
         rebuild();
     });

@@ -5,15 +5,30 @@
  * 数据来源：飞书多维表格《历史销量数据》
  * APP_TOKEN = "VSuPbf0usaGOUasEluUcWdFwnvg"
  * TABLE_ID  = "tbl2RWkEIMJ5fzJP"
- *
- * 月份列不再硬编码，改为从飞书返回的实际数据中动态发现。
- * 只要飞书表格新增了月份字段，页面会自动显示，无需改代码。
  */
 
-// ==================== 月份列定义（动态发现，不再硬编码） ====================
-var MONTH_COLUMNS = [];
+// ==================== 月份列定义 ====================
+// 显示名称 → 飞书字段名（如飞书字段名与显示名一致，可不用修改）
+// 如需修改飞书字段名映射，只需调整下方 MONTH_COLUMNS 中每项的 field 值
+
+var MONTH_COLUMNS = (function() {
+    var cols = [];
+    var years = [22, 23, 24, 25, 26];
+    years.forEach(function(year) {
+        var endMonth = (year === 26) ? 5 : 12;
+        for (var m = 1; m <= endMonth; m++) {
+            var displayName = year + '年' + m + '月';
+            cols.push({
+                display: displayName,
+                field: displayName  // 飞书字段名，若不一致请修改此处
+            });
+        }
+    });
+    return cols;
+})();
 
 // ==================== ASIN 字段映射 ====================
+// 飞书中 ASIN 列的字段名（通常为 "ASIN"）
 var ASIN_FIELD = 'ASIN';
 
 // ==================== 历史页全局状态 ====================
@@ -21,70 +36,17 @@ var globalRecords = [];
 var currentSort = { key: null, direction: 'none' };
 var currentSearchTerm = '';
 
-// ==================== 从数据中动态发现月份列 ====================
-
-/**
- * 扫描所有记录的字段名，找出所有形如 "XX年X月" 的字段，
- * 按年月排序后存入 MONTH_COLUMNS。
- * 优先用 targetAllSku 行来发现（通常它包含所有月份列）。
- */
-function discoverMonthColumns(records) {
-    if (!records || records.length === 0) return;
-
-    var monthSet = {};
-    var monthList = [];
-
-    // 优先扫描 targetAllSku（总量行通常包含所有月份）
-    for (var i = 0; i < records.length; i++) {
-        var f = records[i].fields;
-        if (f && f[ASIN_FIELD] === 'targetAllSku') {
-            scanFields(f, monthSet, monthList);
-            break;
-        }
-    }
-
-    // 如果 targetAllSku 没找到足够月份，再扫其他行补充
-    if (monthList.length === 0) {
-        for (var j = 0; j < records.length; j++) {
-            var fields = records[j].fields;
-            if (!fields || Object.keys(fields).length === 0) continue;
-            scanFields(fields, monthSet, monthList);
-            if (monthList.length >= 6) break;
-        }
-    }
-
-    function scanFields(f, mset, mlist) {
-        Object.keys(f).forEach(function(key) {
-            var match = key.match(/^(\d{2})年(\d{1,2})月$/);
-            if (!match) return;
-            var y = parseInt(match[1]) + 2000;
-            var m = parseInt(match[2]);
-            var sortKey = y * 100 + m;
-            if (!mset[sortKey]) {
-                mset[sortKey] = true;
-                mlist.push({ field: key, year: y, month: m, sortKey: sortKey });
-            }
-        });
-    }
-
-    // 按年月排序
-    monthList.sort(function(a, b) { return a.sortKey - b.sortKey; });
-
-    // 只保留 field 和 display 用于后续渲染
-    MONTH_COLUMNS = monthList.map(function(item) {
-        // display 保持原格式如 "22年1月"
-        return { field: item.field, display: item.field };
-    });
-}
-
 // ==================== 页面初始化 ====================
 
 function onLoginSuccess() {
+    if (!requirePageTag('history')) { showLoginOverlay(); return; }
     fetchHistoryData();
 }
 
 document.addEventListener('DOMContentLoaded', function() {
+    buildTableHeader();
     if (isLoggedIn()) {
+        if (!requirePageTag('history')) return;
         hideLoginOverlay();
         fetchHistoryData();
     } else {
@@ -125,9 +87,6 @@ function fetchHistoryData() {
     }).then(function(result) {
         if (result.status === 'success') {
             globalRecords = result.data;
-            // 动态发现月份列（必须在 buildTableHeader + render 之前）
-            discoverMonthColumns(result.data);
-            buildTableHeader();
             applyFilterAndSort();
         } else {
             console.error('获取历史销量数据失败:', result);
@@ -193,7 +152,7 @@ function renderTable(records) {
         var asin = f[ASIN_FIELD] || '-';
         var html = '<td class="col-asin">' + asin + '</td>';
 
-        // 各月份销量数据（按动态发现的列顺序）
+        // 各月份销量数据
         MONTH_COLUMNS.forEach(function(col) {
             var val = f[col.field];
             if (val !== undefined && val !== null && val !== '') {

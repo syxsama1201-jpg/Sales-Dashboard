@@ -39,6 +39,20 @@ function isLoggedIn() {
     return !!getToken();
 }
 
+function getUserTags() {
+    const auth = getStoredAuth();
+    return auth ? auth.tags || [] : [];
+}
+
+function requirePageTag(pageTag) {
+    const tags = getUserTags();
+    if (tags.indexOf(pageTag) === -1) {
+        alert('您没有权限访问此页面');
+        return false;
+    }
+    return true;
+}
+
 function showLoginOverlay() {
     document.getElementById('loginOverlay').classList.remove('hidden');
     document.getElementById('loginError').textContent = '';
@@ -76,6 +90,7 @@ async function doLogin() {
             saveAuth({
                 token: data.token,
                 user: data.user,
+                tags: data.tags,
                 expires_at: Math.floor(Date.now() / 1000) + data.expires_in
             });
             hideLoginOverlay();
