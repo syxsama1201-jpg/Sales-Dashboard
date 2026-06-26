@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Amazon 美国站 Duffle Bag 市场调研报告</title>
+  <link rel="stylesheet" href="css/dashboard.css">
   <style>
     :root {
       --bg: #f4f7f8;
@@ -30,29 +31,18 @@
       scroll-behavior: smooth;
     }
 
-    body {
-      margin: 0;
-      color: var(--ink);
-      background:
-        linear-gradient(90deg, rgba(14,143,114,0.03), transparent 28%),
-        var(--bg);
-      font-family: Arial, "Microsoft YaHei", "PingFang SC", sans-serif;
-      font-size: 14px;
-      line-height: 1.65;
-    }
-
     a { color: inherit; text-decoration: none; }
 
     .topbar {
       position: sticky;
       top: 0;
       z-index: 5;
-      height: 58px;
+      min-height: 60px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 20px;
-      padding: 0 28px;
+      padding: 10px 10px;
       background: rgba(255,255,255,0.94);
       border-bottom: 1px solid var(--line);
       backdrop-filter: blur(12px);
@@ -170,6 +160,18 @@
 
     main {
       min-width: 0;
+    }
+
+    /* 报告内容区域样式覆盖 */
+    .content-scrollable {
+      font-family: Arial, "Microsoft YaHei", "PingFang SC", sans-serif;
+      font-size: 14px;
+      line-height: 1.65;
+      color: var(--ink);
+      background:
+        linear-gradient(90deg, rgba(14,143,114,0.03), transparent 28%),
+        var(--bg);
+      padding: 0;
     }
 
     .hero {
@@ -612,38 +614,90 @@
   </style>
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand">
-      <div class="brand-mark">DB</div>
-      <div>
-        <strong>Amazon 美国站 Duffle Bag 市场调研报告</strong>
-        <span>Duffle Bag · 数据基准：2026-05 · SellerSprite MCP</span>
-      </div>
-    </div>
-    <div class="source-pill">
-      <span>数据来源：卖家精灵 MCP</span>
-      <span>市场：Amazon US</span>
-      <span>生成日期：2026-06-25</span>
-    </div>
-  </header>
 
-  <div class="layout">
-    <aside>
-      <div class="nav-title">报告目录</div>
-      <nav>
-        <div class="nav-section">PART 00 判断</div>
-        <a class="active" href="#summary">结论和判断依据</a>
-        <a href="#scope">统计口径来源和报告范围</a>
-        <div class="nav-section">PART 01 市场</div>
-        <a href="#market">duffle bag 市场基本情况调研</a>
-        <div class="nav-section">PART 02 款式</div>
-        <a href="#styles">重点款式总览</a>
-        <div class="nav-section">PART 03 竞品</div>
-        <a href="#bsr">BSR 竞品分析</a>
-      </nav>
-    </aside>
+    <!-- ===== 登录遮罩层 ===== -->
+    <div id="loginOverlay" class="login-overlay hidden">
+        <div class="login-card">
+            <div class="login-title">Duffle Bag 市场调研报告</div>
+            <div class="login-subtitle">请输入账号密码登录</div>
+            <input type="text" id="loginUser" class="login-input" placeholder="用户名" autocomplete="username">
+            <input type="password" id="loginPass" class="login-input" placeholder="密码" autocomplete="current-password">
+            <button id="loginBtn" class="login-btn" onclick="doLogin()">登 录</button>
+            <div id="loginError" class="login-error"></div>
+            <div class="login-footer">Acme Zone 数据看板</div>
+        </div>
+    </div>
 
-    <main>
+    <!-- ===== 侧边栏 ===== -->
+    <div class="sidebar">
+        <div class="sidebar-logo"></div>
+        <a class="nav-item" href="index.html">
+            <div class="nav-icon-placeholder"></div>首页
+        </a>
+        <a class="nav-item" href="index.html">
+            <div class="nav-icon-placeholder"></div>销售
+        </a>
+        <a class="nav-item" href="inventory.html">
+            <div class="nav-icon-placeholder"></div>库存
+        </a>
+        <a class="nav-item" href="vc_replenishment_model.html">
+            <div class="nav-icon-placeholder"></div>发货
+        </a>
+        <a class="nav-item" href="history.html">
+            <div class="nav-icon-placeholder"></div>历史
+        </a>
+        <a class="nav-item active" href="duffle-bag-report.html">
+            <div class="nav-icon-placeholder" style="background-color:#fff;"></div>开发
+        </a>
+        <a class="nav-item erp" href="#">
+            <div class="nav-icon-placeholder" style="background-color:#fff;"></div>ERP
+        </a>
+    </div>
+
+    <!-- ===== 主内容区 ===== -->
+    <div class="main-container">
+        <header class="top-header">
+            <div class="header-tabs">
+                <div class="tab active">Duffle Bag 市场调研报告<div class="close-icon-placeholder"></div></div>
+            </div>
+            <div class="header-right">
+                <div class="user-avatar-placeholder"></div>
+            </div>
+        </header>
+
+        <main class="content-scrollable">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark">DB</div>
+          <div>
+            <strong>Amazon 美国站 Duffle Bag 市场调研报告</strong>
+            <span>Duffle Bag · 数据基准：2026-05 · SellerSprite MCP</span>
+          </div>
+        </div>
+        <div class="source-pill">
+          <span>数据来源：卖家精灵 MCP</span>
+          <span>市场：Amazon US</span>
+          <span>生成日期：2026-06-25</span>
+        </div>
+      </header>
+
+      <div class="layout">
+        <aside>
+          <div class="nav-title">报告目录</div>
+          <nav>
+            <div class="nav-section">PART 00 判断</div>
+            <a class="active" href="#summary">结论和判断依据</a>
+            <a href="#scope">统计口径来源和报告范围</a>
+            <div class="nav-section">PART 01 市场</div>
+            <a href="#market">duffle bag 市场基本情况调研</a>
+            <div class="nav-section">PART 02 款式</div>
+            <a href="#styles">重点款式总览</a>
+            <div class="nav-section">PART 03 竞品</div>
+            <a href="#bsr">BSR 竞品分析</a>
+          </nav>
+        </aside>
+
+        <main>
       <section class="hero" id="summary">
         <div class="hero-copy">
           <div class="eyebrow">Duffle Bag · US · Market Entry Snapshot</div>
@@ -1163,7 +1217,11 @@
       </section>
 
       <div class="footer-note">SellerSprite MCP / Amazon US / Duffle Bag Category Research / 2026-06-25</div>
-    </main>
-  </div>
+        </main>
+      </div>
+        </main>
+    </div>
+
+    <script src="js/common.js"></script>
 </body>
 </html>
