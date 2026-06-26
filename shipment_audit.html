@@ -1000,7 +1000,7 @@ function updateGlobalMetrics() {
         .reduce((sum, r) => sum + toNumber(r.edited[9]), 0);
     const overseasShipTotal = store.overseas.rows
         .filter(r => r.isSku)
-        .reduce((sum, r) => sum + toNumber(r.edited[9]), 0);
+        .reduce((sum, r) => sum + toNumber(r.edited[9]), 0) / 2;
 
     document.getElementById("skuCount").textContent = fmt(skuRows.length);
     document.getElementById("supplierShipTotal").textContent = fmt(supplierShipTotal);
@@ -1075,7 +1075,7 @@ function buildReviewPayload() {
         .reduce((sum, r) => sum + toNumber(r.edited[9]), 0);
     const overseasShipTotal = store.overseas.rows
         .filter(r => r.isSku)
-        .reduce((sum, r) => sum + toNumber(r.edited[9]), 0);
+        .reduce((sum, r) => sum + toNumber(r.edited[9]), 0) / 2;
     const skuCount = [...store.supplier.rows, ...store.overseas.rows].filter(r => r.isSku).length;
     const changedCount = [...store.supplier.rows, ...store.overseas.rows].filter(r => r.isSku && r.changed).length;
 
