@@ -1,0 +1,1278 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>发货审核 · 双仓上传版</title>
+<link rel="stylesheet" href="css/dashboard.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root {
+    --ship-purple: #7C6FF7;
+    --ship-blue: #4A9EF5;
+    --ship-green: #4DB87A;
+    --ship-amber: #F0A030;
+    --ship-red: #E85555;
+    --ship-text: #1d2129;
+    --ship-sub: #4e5969;
+    --ship-muted: #86909c;
+    --ship-line: #e5e6eb;
+    --ship-bg: #f7f8fa;
+}
+
+body {
+    margin: 0;
+    background: var(--ship-bg);
+    color: var(--ship-text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+.ship-page { padding: 14px 18px 24px; }
+
+.ship-title-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.ship-title h2 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--ship-text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ship-title h2::after {
+    content: "";
+    width: 16px;
+    height: 16px;
+    background: var(--ship-purple);
+    border-radius: 2px;
+    display: inline-block;
+}
+
+.ship-title p { margin: 5px 0 0; font-size: 11px; color: var(--ship-muted); }
+
+.ship-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+
+.ship-btn {
+    height: 30px;
+    padding: 0 14px;
+    border: 1px solid var(--ship-line);
+    border-radius: 2px;
+    background: #fff;
+    color: var(--ship-sub);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+}
+.ship-btn:hover { background: #f7f8fa; color: var(--ship-text); }
+.ship-btn.primary { background: var(--ship-purple); border-color: var(--ship-purple); color: #fff; }
+.ship-btn.green { background: var(--ship-green); border-color: var(--ship-green); color: #fff; }
+.ship-btn.amber { background: var(--ship-amber); border-color: var(--ship-amber); color: #fff; }
+.ship-btn:disabled { opacity: .45; cursor: not-allowed; }
+
+.ship-card, .ship-table-shell {
+    background: #fff;
+    border: 1px solid var(--ship-line);
+    border-radius: 2px;
+    margin-bottom: 10px;
+}
+.ship-card { padding: 12px 14px; }
+
+.ship-sec-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--ship-sub);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+.ship-sec-title::after { content: ""; flex: 1; height: 1px; background: var(--ship-line); }
+
+.ship-sec-title.collapsible {
+    cursor: pointer;
+    user-select: none;
+}
+.ship-sec-title.collapsible::before {
+    content: "▶";
+    color: var(--ship-purple);
+    font-size: 10px;
+    transition: transform .18s ease;
+}
+.ship-sec-title.collapsible.open::before {
+    transform: rotate(90deg);
+}
+.ship-card-body {
+    display: none;
+}
+.ship-card-body.open {
+    display: block;
+}
+.ship-collapse-hint {
+    font-size: 11px;
+    color: var(--ship-muted);
+    font-weight: 500;
+    margin-left: auto;
+}
+.ship-sec-title.collapsible::after {
+    max-width: 999px;
+}
+
+.ship-upload-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(260px, 1fr));
+    gap: 10px;
+}
+
+.ship-upload-box {
+    border: 1px dashed rgba(124, 111, 247, .55);
+    background: #fff;
+    border-radius: 2px;
+    padding: 14px;
+    min-height: 86px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 7px;
+}
+.ship-upload-box.supplier { border-color: rgba(240,160,48,.55); }
+.ship-upload-box.overseas { border-color: rgba(74,158,245,.55); }
+.ship-upload-box b { font-size: 13px; color: var(--ship-text); }
+.ship-upload-box span { font-size: 11px; color: var(--ship-muted); line-height: 1.5; }
+.ship-file-input { display: none; }
+
+.ship-mini-row {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(150px, 1fr));
+    gap: 10px;
+}
+.ship-mini-panel { border: 1px solid var(--ship-line); background: #fff; border-radius: 2px; padding: 12px; }
+.ship-mini-label { font-size: 11px; color: var(--ship-muted); margin-bottom: 4px; }
+.ship-mini-value { font-size: 18px; font-weight: 700; color: var(--ship-text); }
+.ship-mini-value.purple { color: var(--ship-purple); }
+.ship-mini-value.green { color: var(--ship-green); }
+.ship-mini-value.amber { color: var(--ship-amber); }
+.ship-mini-value.red { color: var(--ship-red); }
+.ship-mini-sub { margin-top: 3px; font-size: 10px; color: var(--ship-muted); }
+
+.ship-toolbar {
+    display: grid;
+    grid-template-columns: 180px 180px 1fr auto;
+    gap: 8px;
+    align-items: center;
+    margin-top: 10px;
+}
+.ship-input, .ship-select {
+    height: 30px;
+    border: 1px solid var(--ship-line);
+    border-radius: 2px;
+    padding: 0 9px;
+    font-size: 12px;
+    color: var(--ship-text);
+    outline: none;
+    background: #fff;
+    font-family: inherit;
+}
+.ship-input:focus, .ship-select:focus { border-color: var(--ship-purple); }
+
+.ship-alert {
+    border-radius: 2px;
+    padding: 10px 12px;
+    font-size: 12px;
+    line-height: 1.7;
+    margin-bottom: 10px;
+    border-left: 3px solid var(--ship-blue);
+    background: rgba(74, 158, 245, .05);
+    color: var(--ship-sub);
+}
+.ship-alert b { color: var(--ship-text); }
+
+.ship-table-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: center;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--ship-line);
+    background: #fff;
+}
+.ship-table-head-left { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ship-table-title { font-size: 13px; font-weight: 700; color: var(--ship-text); }
+.ship-table-sub { font-size: 11px; color: var(--ship-muted); }
+
+.ship-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 7px;
+    border-radius: 2px;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+.ship-tag.purple { background: rgba(124,111,247,.12); color: var(--ship-purple); }
+.ship-tag.green { background: rgba(77,184,122,.12); color: #3aa36a; }
+.ship-tag.amber { background: rgba(240,160,48,.12); color: #d89020; }
+.ship-tag.red { background: rgba(232,85,85,.12); color: #d94545; }
+.ship-tag.blue { background: rgba(74,158,245,.12); color: #3d8ce8; }
+
+.ship-table-wrap { overflow: auto; max-height: 420px; }
+.ship-table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 1760px; }
+
+.ship-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    background: #f7f8fa;
+    background-clip: padding-box;
+    border-bottom: 1px solid var(--ship-line);
+    border-right: 1px solid var(--ship-line);
+    padding: 7px 8px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--ship-sub);
+    white-space: nowrap;
+    box-shadow: 0 1px 0 var(--ship-line);
+}
+
+/* editable-head 不再使用半透明底色，避免 sticky 表头下拉时出现重叠透显。 */
+.ship-table thead th.editable-head {
+    background: #f7f8fa;
+    color: var(--ship-purple);
+}
+
+.ship-table tbody td {
+    border-bottom: 1px solid var(--ship-line);
+    border-right: 1px solid #f0f1f5;
+    padding: 6px 8px;
+    vertical-align: middle;
+    white-space: nowrap;
+    background: #fff;
+}
+.ship-table tbody tr:hover td { background: #fafcff; }
+.ship-table tbody tr.summary-row td { background: #fafbff; font-weight: 700; }
+.ship-table tbody tr.warn-low td { background: #fff8f8; }
+.ship-table tbody tr.warn-high td { background: #fffaf1; }
+.ship-table tbody tr.changed td { box-shadow: inset 3px 0 0 rgba(124,111,247,.45); }
+
+.ship-table td.product-name { max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
+.ship-edit {
+    width: 92px;
+    height: 26px;
+    border: 1px solid rgba(124,111,247,.35);
+    background: #fff;
+    border-radius: 2px;
+    padding: 0 7px;
+    font-size: 12px;
+    color: var(--ship-text);
+    outline: none;
+    font-family: inherit;
+}
+.ship-edit.remark { width: 170px; text-align: left; }
+.ship-edit:focus { border-color: var(--ship-purple); box-shadow: 0 0 0 2px rgba(124,111,247,.08); }
+.ship-num { text-align: right; font-variant-numeric: tabular-nums; }
+.ship-empty { padding: 44px 20px; text-align: center; color: var(--ship-muted); font-size: 12px; }
+
+.ship-footer-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 12px;
+    border-top: 1px solid var(--ship-line);
+    background: #fff;
+    font-size: 11px;
+    color: var(--ship-muted);
+}
+
+.ship-toast {
+    position: fixed;
+    right: 18px;
+    bottom: 18px;
+    min-width: 220px;
+    max-width: 360px;
+    background: #1d2129;
+    color: #fff;
+    font-size: 12px;
+    line-height: 1.6;
+    padding: 10px 12px;
+    border-radius: 3px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.18);
+    display: none;
+    z-index: 9999;
+}
+
+@media (max-width: 1100px) {
+    .ship-upload-grid, .ship-mini-row { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 760px) {
+    .ship-upload-grid, .ship-mini-row { grid-template-columns: 1fr; }
+    .ship-toolbar { grid-template-columns: 1fr; }
+    .ship-title-row { flex-direction: column; }
+    .ship-actions { justify-content: flex-start; }
+}
+</style>
+</head>
+<body>
+
+<!-- ═══ 登录遮罩层 ═══ -->
+<div id="loginOverlay" class="login-overlay hidden">
+    <div class="login-card">
+        <div class="login-title">本周发货审核</div>
+        <div class="login-subtitle">请输入账号密码登录</div>
+        <input type="text" id="loginUser" class="login-input" placeholder="用户名" autocomplete="username">
+        <input type="password" id="loginPass" class="login-input" placeholder="密码" autocomplete="current-password">
+        <button id="loginBtn" class="login-btn" onclick="doLogin()">登 录</button>
+        <div id="loginError" class="login-error"></div>
+        <div class="login-footer">Acme Zone 数据看板</div>
+    </div>
+</div>
+
+<!-- ═══ 侧边栏 ═══ -->
+<div class="sidebar">
+    <div class="sidebar-logo"></div>
+    <a class="nav-item" href="index.html">
+        <div class="nav-icon-placeholder"></div>首页
+    </a>
+    <a class="nav-item" href="index.html">
+        <div class="nav-icon-placeholder"></div>销售
+    </a>
+    <a class="nav-item" href="inventory.html">
+        <div class="nav-icon-placeholder"></div>库存
+    </a>
+    <a class="nav-item active" href="vc_replenishment_model.html">
+        <div class="nav-icon-placeholder" style="background-color:#fff;"></div>发货
+    </a>
+    <a class="nav-item" href="history.html">
+        <div class="nav-icon-placeholder"></div>预测
+    </a>
+    <a class="nav-item" href="duffle-bag-report.html">
+        <div class="nav-icon-placeholder"></div>开发
+    </a>
+    <a class="nav-item erp" href="#">
+        <div class="nav-icon-placeholder" style="background-color:#fff;"></div>ERP
+    </a>
+</div>
+
+<!-- ═══ 主内容区 ═══ -->
+<div class="main-container">
+    <header class="top-header">
+        <div class="header-tabs">
+            <div class="tab active">本周发货审核<div class="close-icon-placeholder"></div></div>
+            <a class="tab active" href="vc_replenishment_model.html">备货模型 · 总量预测<div class="close-icon-placeholder"></div></a>
+        </div>
+        <div class="header-right">
+            <div class="user-avatar-placeholder"></div>
+        </div>
+    </header>
+
+    <main class="content-scrollable">
+<div class="ship-page">
+    <div class="ship-title-row">
+        <div class="ship-title">
+            <h2>发货审核 · 双仓上传版</h2>
+            <p>分别上传供应商仓与海外仓 Excel，展示 A 到 M 列以及 Q 到 V 列。F、J、M、Q 可编辑，G/H/I/K 由页面实时计算。</p>
+        </div>
+        <div class="ship-actions">
+            <button class="ship-btn" onclick="resetAllDrafts()">恢复原始值</button>
+            <button class="ship-btn" onclick="exportReviewJson()">导出审核 JSON</button>
+            <button class="ship-btn primary" onclick="saveReviewDraft()">保存审核</button>
+        </div>
+    </div>
+
+    <div class="ship-card ship-import-card">
+        <div class="ship-sec-title collapsible open" id="importToggle" onclick="toggleImportPanel()">
+            数据导入
+            <span class="ship-collapse-hint" id="importToggleHint">点击折叠</span>
+        </div>
+        <div class="ship-card-body open" id="importPanel">
+        <div class="ship-upload-grid">
+            <label class="ship-upload-box supplier" for="supplierFile">
+                <b>🏭 上传供应商仓 Excel</b>
+                <span>若上传的是包含两段表头的完整文件，页面会自动抽取“供应商仓”段。该表 L 列标题显示为“海外库存”。</span>
+                <input id="supplierFile" class="ship-file-input" type="file" accept=".xlsx,.xls" onchange="handleExcelUpload(event, 'supplier')">
+                <button type="button" class="ship-btn amber" onclick="event.stopPropagation(); triggerUpload('supplier')">选择供应商仓文件</button>
+            </label>
+
+            <label class="ship-upload-box overseas" for="overseasFile">
+                <b>🌊 上传海外仓 Excel</b>
+                <span>若上传的是包含两段表头的完整文件，页面会自动抽取“海外仓”段。L 列标题保持原表口径。</span>
+                <input id="overseasFile" class="ship-file-input" type="file" accept=".xlsx,.xls" onchange="handleExcelUpload(event, 'overseas')">
+                <button type="button" class="ship-btn green" onclick="event.stopPropagation(); triggerUpload('overseas')">选择海外仓文件</button>
+            </label>
+        </div>
+
+        <div style="height:10px"></div>
+        <div class="ship-mini-row">
+            <div class="ship-mini-panel">
+                <div class="ship-mini-label">供应商仓状态</div>
+                <div class="ship-mini-value amber" id="supplierStatus">未导入</div>
+                <div class="ship-mini-sub" id="supplierStatusSub">等待上传</div>
+            </div>
+            <div class="ship-mini-panel">
+                <div class="ship-mini-label">海外仓状态</div>
+                <div class="ship-mini-value green" id="overseasStatus">未导入</div>
+                <div class="ship-mini-sub" id="overseasStatusSub">等待上传</div>
+            </div>
+            <div class="ship-mini-panel">
+                <div class="ship-mini-label">SKU 行数</div>
+                <div class="ship-mini-value" id="skuCount">0</div>
+                <div class="ship-mini-sub">两张表合计，排除表头和合计行</div>
+            </div>
+            <div class="ship-mini-panel">
+                <div class="ship-mini-label">最近更新时间</div>
+                <div class="ship-mini-value" id="updateTime">-</div>
+                <div class="ship-mini-sub">以上传时间为准</div>
+            </div>
+        </div>
+        </div>
+    </div>
+
+    <div class="ship-card">
+        <div class="ship-sec-title">审核概览</div>
+        <div class="ship-mini-row">
+            <div class="ship-mini-panel">
+                <div class="ship-mini-label">供应商仓发货量合计</div>
+                <div class="ship-mini-value amber" id="supplierShipTotal">0</div>
+                <div class="ship-mini-sub">供应商仓 J 列，按当前审核值统计</div>
+            </div>
+            <div class="ship-mini-panel">
+                <div class="ship-mini-label">海外仓发货量合计</div>
+                <div class="ship-mini-value green" id="overseasShipTotal">0</div>
+                <div class="ship-mini-sub">海外仓 J 列，按当前审核值统计</div>
+            </div>
+            <div class="ship-mini-panel">
+                <div class="ship-mini-label">已修改行</div>
+                <div class="ship-mini-value purple" id="changedCount">0</div>
+                <div class="ship-mini-sub">F/J/M/Q 任一字段变化</div>
+            </div>
+            <div class="ship-mini-panel">
+                <div class="ship-mini-label">异常提示</div>
+                <div class="ship-mini-value red" id="riskCount">0</div>
+                <div class="ship-mini-sub">K 列低于 60 或高于 180</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="ship-alert">
+        <b>计算口径：</b>导入后数字统一四舍五入为 0 位。G=L/F，H=MAX(F×105−L,0)，I=(H+L)/F，K=(J+L)/F。F 或 J 被修改后，G/H/I/K 会即时刷新。Q 目前仅作为可编辑展示与导出字段，不参与上述公式。
+    </div>
+
+    <div id="supplierSection"></div>
+    <div id="overseasSection"></div>
+</div>
+    </main>
+</div>
+
+<div class="ship-toast" id="toast"></div>
+
+<script src="js/common.js"></script>
+<script>
+function toggleImportPanel(forceOpen) {
+    const panel = document.getElementById("importPanel");
+    const toggle = document.getElementById("importToggle");
+    const hint = document.getElementById("importToggleHint");
+    if (!panel || !toggle || !hint) return;
+
+    const shouldOpen = typeof forceOpen === "boolean" ? forceOpen : !panel.classList.contains("open");
+    panel.classList.toggle("open", shouldOpen);
+    toggle.classList.toggle("open", shouldOpen);
+    hint.textContent = shouldOpen ? "点击折叠" : "点击展开";
+    try { localStorage.setItem("shipment_import_panel_open", shouldOpen ? "1" : "0"); } catch(e) {}
+}
+
+function restoreImportPanelState() {
+    try {
+        const saved = localStorage.getItem("shipment_import_panel_open");
+        if (saved === "0") toggleImportPanel(false);
+    } catch(e) {}
+}
+
+const WAREHOUSES = {
+    supplier: { label: "供应商仓", emoji: "🏭", color: "amber", fileInput: "supplierFile" },
+    overseas: { label: "海外仓", emoji: "🌊", color: "green", fileInput: "overseasFile" }
+};
+
+const DISPLAY_COLS = [
+    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
+    16, 17, 18, 19, 20, 21
+];
+const EDITABLE_COLS = new Set([5, 9, 12, 16]);
+const NUMERIC_EDIT_COLS = new Set([5, 9, 16]);
+const CALC_COLS = new Set([6, 7, 8, 10]);
+const NUMERIC_DISPLAY_COLS = new Set([4, 5, 6, 7, 8, 9, 10, 11, 16, 17, 18, 19, 20, 21]);
+
+const FALLBACK_HEADERS = {
+    0: "子ASIN",
+    1: "父ASIN",
+    2: "SKU",
+    3: "产品名称",
+    4: "预估日均",
+    5: "修改后日均",
+    6: "预估可卖天数",
+    7: "建议发货量",
+    8: "发货后可售天数",
+    9: "实际发货量",
+    10: "修改后可售天数",
+    11: "库存数量",
+    12: "备注",
+    16: "本周待出库",
+    17: "FBA7天日均",
+    18: "最近7天日均",
+    19: "forecast日均",
+    20: "历史日均",
+    21: "预估日均"
+};
+
+let store = {
+    supplier: createDataset(),
+    overseas: createDataset()
+};
+
+function createDataset() {
+    return {
+        rows: [],
+        headers: { ...FALLBACK_HEADERS },
+        fileName: "",
+        version: ""
+    };
+}
+
+function triggerUpload(type) {
+    document.getElementById(WAREHOUSES[type].fileInput).click();
+}
+
+function toNumber(v, fallback = 0) {
+    if (v === null || v === undefined || v === "") return fallback;
+    const n = Number(String(v).replace(/,/g, ""));
+    return Number.isFinite(n) ? n : fallback;
+}
+
+function isNumericLike(v) {
+    if (v === null || v === undefined || v === "") return false;
+    if (typeof v === "number") return Number.isFinite(v);
+    const s = String(v).replace(/,/g, "").trim();
+    if (s === "") return false;
+    return /^-?\d+(\.\d+)?$/.test(s);
+}
+
+function round0(v) {
+    if (v === null || v === undefined || v === "") return "";
+    if (!isNumericLike(v)) return v;
+    return Math.round(toNumber(v));
+}
+
+function fmt(v) {
+    if (v === null || v === undefined || v === "") return "-";
+    if (!isNumericLike(v)) return escapeHtml(v);
+    return Math.round(toNumber(v)).toLocaleString("zh-CN", { maximumFractionDigits: 0 });
+}
+
+function safeDiv(a, b) {
+    const den = toNumber(b, 0);
+    if (!den) return "";
+    return Math.round(toNumber(a, 0) / den);
+}
+
+function isHeaderRow(row) {
+    return String(row[0] || "").trim() === "子ASIN" && String(row[3] || "").trim() === "产品名称";
+}
+
+function isSummaryRow(row) {
+    return String(row[3] || "").trim() === "合计";
+}
+
+function isBlankRow(row) {
+    return !row || row.every(v => v === null || v === undefined || v === "");
+}
+
+function isSkuRow(row) {
+    return !isHeaderRow(row) && !isSummaryRow(row) && Boolean(row[0] || row[2] || row[3]);
+}
+
+function normalizeRow(row) {
+    const out = row.slice();
+    for (let i = 0; i < out.length; i++) {
+        if (isNumericLike(out[i])) out[i] = Math.round(toNumber(out[i]));
+    }
+    return out;
+}
+
+function cleanHeader(v) {
+    return String(v ?? "").replace(/\n/g, " ").trim();
+}
+
+function handleExcelUpload(event, type) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: "array", cellDates: false });
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: "" });
+        ingestRows(rows, file.name, type);
+        event.target.value = "";
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+function extractWarehouseBlock(rows, type) {
+    const target = WAREHOUSES[type].label;
+    const headerIndexes = [];
+
+    rows.forEach((row, idx) => {
+        if (isHeaderRow(row)) headerIndexes.push(idx);
+    });
+
+    if (!headerIndexes.length) return { header: null, dataRows: rows.filter(r => !isBlankRow(r)) };
+
+    let selectedHeaderIndex = headerIndexes[0];
+    for (let i = 0; i < headerIndexes.length; i++) {
+        const hIdx = headerIndexes[i];
+        const next = rows[hIdx + 1] || [];
+        const nextA = String(next[0] || "").trim();
+        if (nextA === target) {
+            selectedHeaderIndex = hIdx;
+            break;
+        }
+    }
+
+    const nextHeaderIndex = headerIndexes.find(idx => idx > selectedHeaderIndex) ?? rows.length;
+    return {
+        header: rows[selectedHeaderIndex],
+        dataRows: rows.slice(selectedHeaderIndex + 1, nextHeaderIndex).filter(r => !isBlankRow(r) && !isHeaderRow(r))
+    };
+}
+
+function ingestRows(rows, sourceName, type) {
+    const block = extractWarehouseBlock(rows, type);
+    const dataset = createDataset();
+
+    if (block.header) {
+        DISPLAY_COLS.forEach(col => {
+            if (block.header[col] !== null && block.header[col] !== undefined && block.header[col] !== "") {
+                dataset.headers[col] = cleanHeader(block.header[col]);
+            }
+        });
+    }
+
+    if (type === "supplier") {
+        dataset.headers[11] = "海外库存";
+    }
+
+    block.dataRows.forEach((raw, index) => {
+        dataset.rows.push(buildRow(raw, index, type));
+    });
+
+    dataset.fileName = sourceName || "Excel 文件";
+    dataset.version = new Date().toISOString();
+    store[type] = dataset;
+
+    renderWarehouse(type);
+    updateGlobalMetrics();
+    updateStatus(type);
+
+    toast(`${WAREHOUSES[type].label} Excel 已导入，G/H/I/K 已按页面公式重算。`);
+}
+
+function buildRow(raw, index, type) {
+    const normalized = normalizeRow(raw);
+    const item = {
+        id: type + "_r_" + index,
+        type,
+        index,
+        raw: normalized,
+        original: {},
+        edited: {},
+        isSummary: isSummaryRow(normalized),
+        isSku: isSkuRow(normalized),
+        changed: false,
+        lowRisk: false,
+        highRisk: false
+    };
+
+    EDITABLE_COLS.forEach(col => {
+        item.original[col] = normalized[col] ?? "";
+        item.edited[col] = normalized[col] ?? "";
+    });
+
+    recalcRow(item);
+    return item;
+}
+
+function recalcRow(row) {
+    const F = toNumber(row.edited[5], toNumber(row.raw[5], toNumber(row.raw[4], 0)));
+    const J = toNumber(row.edited[9], toNumber(row.raw[9], 0));
+    const L = toNumber(row.raw[11], 0);
+
+    row.raw[5] = F;
+    row.raw[6] = safeDiv(L, F);               // G = L / F
+    row.raw[7] = Math.round(Math.max(F * 105 - L, 0)); // H = MAX(F*105 - L, 0)
+    row.raw[8] = safeDiv(row.raw[7] + L, F);  // I = (H + L) / F
+    row.raw[9] = J;
+    row.raw[10] = safeDiv(J + L, F);          // K = (J + L) / F
+    row.raw[12] = row.edited[12] ?? "";
+    row.raw[16] = toNumber(row.edited[16], 0);
+
+    row.changed = Array.from(EDITABLE_COLS).some(col => String(row.edited[col] ?? "") !== String(row.original[col] ?? ""));
+
+    const K = toNumber(row.raw[10], null);
+    row.lowRisk = row.isSku && K !== null && K < 60;
+    row.highRisk = row.isSku && K !== null && K > 180;
+}
+
+function updateStatus(type) {
+    const dataset = store[type];
+    const skuRows = dataset.rows.filter(r => r.isSku);
+    const statusId = type + "Status";
+    const subId = type + "StatusSub";
+    document.getElementById(statusId).textContent = skuRows.length ? "已导入" : "无数据";
+    document.getElementById(subId).textContent = dataset.fileName || "等待上传";
+    document.getElementById("updateTime").textContent = new Date().toLocaleString("zh-CN", { hour12: false });
+}
+
+function renderWarehouse(type) {
+    const mount = document.getElementById(type + "Section");
+    const wh = WAREHOUSES[type];
+    const dataset = store[type];
+
+    mount.innerHTML = `
+        <div class="ship-table-shell">
+            <div class="ship-table-head">
+                <div class="ship-table-head-left">
+                    <div class="ship-table-title">${wh.emoji} ${wh.label} · 发货审核明细</div>
+                    <span class="ship-tag purple">F 可编辑</span>
+                    <span class="ship-tag green">J 可编辑</span>
+                    <span class="ship-tag blue">M 可编辑</span>
+                    <span class="ship-tag amber">Q 可编辑</span>
+                    <span class="ship-tag blue">G/H/I/K 自动计算</span>
+                </div>
+                <div class="ship-table-sub" id="${type}VisibleInfo">暂无数据</div>
+            </div>
+            <div class="ship-toolbar" style="padding:10px 12px;margin-top:0;border-bottom:1px solid var(--ship-line);">
+                <select id="${type}RowTypeFilter" class="ship-select" onchange="renderWarehouse('${type}')">
+                    <option value="all">全部行</option>
+                    <option value="sku">仅 SKU 明细</option>
+                    <option value="summary">仅合计行</option>
+                </select>
+                <select id="${type}RiskFilter" class="ship-select" onchange="renderWarehouse('${type}')">
+                    <option value="all">全部状态</option>
+                    <option value="changed">仅看已修改</option>
+                    <option value="low">修改后可售天数偏低</option>
+                    <option value="high">修改后可售天数偏高</option>
+                    <option value="ship">实际发货量 > 0</option>
+                    <option value="pending">本周待出库 > 0</option>
+                </select>
+                <input id="${type}SearchInput" class="ship-input" placeholder="搜索 ASIN / SKU / 产品名称 / 备注" oninput="renderWarehouse('${type}')">
+                <button class="ship-btn ${wh.color}" onclick="triggerUpload('${type}')">重新上传</button>
+            </div>
+            <div class="ship-table-wrap">
+                <table class="ship-table">
+                    <thead><tr>${renderHeader(type)}</tr></thead>
+                    <tbody id="${type}Tbody">${renderBody(type)}</tbody>
+                </table>
+            </div>
+            <div class="ship-footer-bar">
+                <span id="${type}DraftStatus">${dataset.rows.length ? "已载入，尚未保存" : "未导入"}</span>
+                <span>显示字段：A 到 M，Q 到 V。G/H/I/K 为页面计算值，不再读取 Excel 原公式结果。</span>
+            </div>
+        </div>
+    `;
+
+    hydrateWarehouseFilters(type);
+    refreshVisibleInfo(type);
+}
+
+function renderHeader(type) {
+    const headers = store[type].headers;
+    return DISPLAY_COLS.map(col => {
+        const title = headers[col] || FALLBACK_HEADERS[col] || ("列" + (col + 1));
+        const editClass = EDITABLE_COLS.has(col) ? " editable-head" : "";
+        const calcClass = CALC_COLS.has(col) ? " calc-head" : "";
+        const letter = colToLetter(col + 1);
+        return `<th class="${editClass}${calcClass}">${letter} ${escapeHtml(title)}</th>`;
+    }).join("") + `<th>状态</th>`;
+}
+
+function hydrateWarehouseFilters(type) {
+    const rowType = document.getElementById(type + "RowTypeFilter");
+    const risk = document.getElementById(type + "RiskFilter");
+    const search = document.getElementById(type + "SearchInput");
+
+    const saved = filterState[type] || { rowType: "all", risk: "all", search: "" };
+    if (rowType) rowType.value = saved.rowType;
+    if (risk) risk.value = saved.risk;
+    if (search) search.value = saved.search;
+}
+
+const filterState = {
+    supplier: { rowType: "all", risk: "all", search: "" },
+    overseas: { rowType: "all", risk: "all", search: "" }
+};
+
+function readFilters(type) {
+    const rowTypeEl = document.getElementById(type + "RowTypeFilter");
+    const riskEl = document.getElementById(type + "RiskFilter");
+    const searchEl = document.getElementById(type + "SearchInput");
+
+    if (rowTypeEl) filterState[type].rowType = rowTypeEl.value;
+    if (riskEl) filterState[type].risk = riskEl.value;
+    if (searchEl) filterState[type].search = searchEl.value;
+
+    return filterState[type];
+}
+
+function getFilteredRows(type) {
+    const dataset = store[type];
+    const filters = readFilters(type);
+    const keyword = filters.search.trim().toLowerCase();
+
+    return dataset.rows.filter(row => {
+        if (filters.rowType === "sku" && !row.isSku) return false;
+        if (filters.rowType === "summary" && !row.isSummary) return false;
+
+        if (filters.risk === "changed" && !row.changed) return false;
+        if (filters.risk === "low" && !row.lowRisk) return false;
+        if (filters.risk === "high" && !row.highRisk) return false;
+        if (filters.risk === "ship" && toNumber(row.edited[9]) <= 0) return false;
+        if (filters.risk === "pending" && toNumber(row.edited[16]) <= 0) return false;
+
+        if (keyword) {
+            const text = DISPLAY_COLS.map(col => EDITABLE_COLS.has(col) ? row.edited[col] : row.raw[col]).join(" ").toLowerCase();
+            if (!text.includes(keyword)) return false;
+        }
+        return true;
+    });
+}
+
+function refreshVisibleInfo(type) {
+    const rows = getFilteredRows(type);
+    const info = document.getElementById(type + "VisibleInfo");
+    if (info) info.textContent = rows.length ? `当前显示 ${rows.length} 行，共 ${store[type].rows.length} 行` : "当前显示 0 行";
+}
+
+function renderBody(type) {
+    const rows = getFilteredRows(type);
+
+    if (!store[type].rows.length) {
+        return `<tr><td colspan="20"><div class="ship-empty">请上传${WAREHOUSES[type].label} Excel。这里目前是空港，风声比数据多。</div></td></tr>`;
+    }
+    if (!rows.length) {
+        return `<tr><td colspan="20"><div class="ship-empty">没有匹配数据。筛选器的小网兜有点严格。</div></td></tr>`;
+    }
+    return rows.map(row => renderRow(row)).join("");
+}
+
+function renderRow(row) {
+    const cls = [
+        row.isSummary ? "summary-row" : "",
+        row.lowRisk ? "warn-low" : "",
+        row.highRisk ? "warn-high" : "",
+        row.changed ? "changed" : ""
+    ].filter(Boolean).join(" ");
+
+    const tds = DISPLAY_COLS.map(col => renderCell(row, col)).join("");
+    return `<tr class="${cls}">${tds}<td>${getStatusTag(row)}</td></tr>`;
+}
+
+function renderCell(row, col) {
+    const value = EDITABLE_COLS.has(col) ? row.edited[col] : row.raw[col];
+    const isNum = NUMERIC_DISPLAY_COLS.has(col) || NUMERIC_EDIT_COLS.has(col);
+    const cls = [isNum ? "ship-num" : "", col === 3 ? "product-name" : ""].filter(Boolean).join(" ");
+
+    if (EDITABLE_COLS.has(col) && row.isSku) {
+        if (col === 12) {
+            return `<td class="${cls}"><input class="ship-edit remark" type="text" value="${escapeAttr(value)}" onchange="updateEditable('${row.type}', '${row.id}', ${col}, this.value)"></td>`;
+        }
+        return `<td class="${cls}"><input class="ship-edit ship-num" type="number" step="1" value="${toNumber(value)}" onchange="updateEditable('${row.type}', '${row.id}', ${col}, this.value)"></td>`;
+    }
+
+    if (col === 3 || col === 12) {
+        return `<td class="${cls}" title="${escapeAttr(value)}">${escapeHtml(value)}</td>`;
+    }
+    return `<td class="${cls}">${isNum ? fmt(value) : escapeHtml(value)}</td>`;
+}
+
+function getStatusTag(row) {
+    if (row.isSummary) return `<span class="ship-tag blue">合计</span>`;
+    if (row.lowRisk) return `<span class="ship-tag red">偏低</span>`;
+    if (row.highRisk) return `<span class="ship-tag amber">偏高</span>`;
+    if (row.changed) return `<span class="ship-tag purple">已修改</span>`;
+    if (toNumber(row.edited[9]) > 0) return `<span class="ship-tag green">有发货</span>`;
+    return `<span class="ship-tag green">正常</span>`;
+}
+
+function updateEditable(type, rowId, col, value) {
+    const row = store[type].rows.find(r => r.id === rowId);
+    if (!row) return;
+
+    row.edited[col] = NUMERIC_EDIT_COLS.has(col) ? Math.round(toNumber(value)) : value;
+    recalcRow(row);
+    updateGlobalMetrics();
+    renderWarehouse(type);
+    const draftEl = document.getElementById(type + "DraftStatus");
+    if (draftEl) draftEl.textContent = "有未保存修改";
+}
+
+function updateGlobalMetrics() {
+    const allRows = [...store.supplier.rows, ...store.overseas.rows];
+    const skuRows = allRows.filter(r => r.isSku);
+    const changed = skuRows.filter(r => r.changed);
+    const risks = skuRows.filter(r => r.lowRisk || r.highRisk);
+    const supplierShipTotal = store.supplier.rows
+        .filter(r => r.isSku)
+        .reduce((sum, r) => sum + toNumber(r.edited[9]), 0);
+    const overseasShipTotal = store.overseas.rows
+        .filter(r => r.isSku)
+        .reduce((sum, r) => sum + toNumber(r.edited[9]), 0);
+
+    document.getElementById("skuCount").textContent = fmt(skuRows.length);
+    document.getElementById("supplierShipTotal").textContent = fmt(supplierShipTotal);
+    document.getElementById("overseasShipTotal").textContent = fmt(overseasShipTotal);
+    document.getElementById("changedCount").textContent = fmt(changed.length);
+    document.getElementById("riskCount").textContent = fmt(risks.length);
+}
+
+function buildReviewPayload() {
+    const warehouses = {};
+
+    Object.keys(WAREHOUSES).forEach(type => {
+        const dataset = store[type];
+
+        const changes = dataset.rows
+            .filter(r => r.isSku && r.changed)
+            .map(r => ({
+                warehouseType: type,
+                warehouseName: WAREHOUSES[type].label,
+                rowIndex: r.index + 1,
+                childAsin: r.raw[0],
+                parentAsin: r.raw[1],
+                sku: r.raw[2],
+                productName: r.raw[3],
+                calculated: {
+                    G_estSellableDays: r.raw[6],
+                    H_suggestShipQty: r.raw[7],
+                    I_afterShipSellableDays: r.raw[8],
+                    K_afterEditSellableDays: r.raw[10]
+                },
+                edited: {
+                    F_modifiedDaily: r.edited[5],
+                    J_actualShipQty: r.edited[9],
+                    M_remark: r.edited[12],
+                    Q_pendingOutboundThisWeek: r.edited[16]
+                },
+                original: {
+                    F_modifiedDaily: r.original[5],
+                    J_actualShipQty: r.original[9],
+                    M_remark: r.original[12],
+                    Q_pendingOutboundThisWeek: r.original[16]
+                }
+            }));
+
+        warehouses[type] = {
+            label: WAREHOUSES[type].label,
+            source: dataset.fileName,
+            version: dataset.version,
+            rowCount: dataset.rows.length,
+            headers: dataset.headers,
+            rows: dataset.rows.map(r => ({
+                id: r.id,
+                type: r.type,
+                index: r.index,
+                raw: r.raw,
+                original: r.original,
+                edited: r.edited,
+                isSummary: r.isSummary,
+                isSku: r.isSku,
+                changed: r.changed,
+                lowRisk: r.lowRisk,
+                highRisk: r.highRisk
+            })),
+            changes
+        };
+    });
+
+    const supplierShipTotal = store.supplier.rows
+        .filter(r => r.isSku)
+        .reduce((sum, r) => sum + toNumber(r.edited[9]), 0);
+    const overseasShipTotal = store.overseas.rows
+        .filter(r => r.isSku)
+        .reduce((sum, r) => sum + toNumber(r.edited[9]), 0);
+    const skuCount = [...store.supplier.rows, ...store.overseas.rows].filter(r => r.isSku).length;
+    const changedCount = [...store.supplier.rows, ...store.overseas.rows].filter(r => r.isSku && r.changed).length;
+
+    return {
+        savedAt: new Date().toISOString(),
+        displayCols: "A:M,Q:V",
+        editableCols: "F,J,M,Q",
+        calculatedCols: "G=L/F,H=MAX(F*105-L,0),I=(H+L)/F,K=(J+L)/F",
+        summary: {
+            skuCount,
+            supplierShipTotal,
+            overseasShipTotal,
+            changedCount
+        },
+        warehouses
+    };
+}
+
+function getShipmentApiUrl() {
+    const base = (typeof API_BASE !== "undefined" && API_BASE) ? API_BASE : "";
+    return base + "/api/shipment/current";
+}
+
+function getAuthTokenFlexible() {
+    if (typeof getToken === "function") {
+        try {
+            const t = getToken();
+            if (t) return t;
+        } catch(e) {}
+    }
+
+    const commonKeys = [
+        "token",
+        "auth_token",
+        "access_token",
+        "acmezone_token",
+        "acme_token",
+        "login_token"
+    ];
+
+    for (const key of commonKeys) {
+        try {
+            const v = localStorage.getItem(key);
+            if (v) return v;
+        } catch(e) {}
+    }
+
+    try {
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            const v = localStorage.getItem(key);
+            if (typeof v === "string" && /^[A-Za-z0-9_-]+\.[0-9a-f]{64}$/i.test(v)) {
+                return v;
+            }
+        }
+    } catch(e) {}
+
+    return "";
+}
+
+async function saveReviewDraft() {
+    const payload = buildReviewPayload();
+    const token = getAuthTokenFlexible();
+
+    if (!token) {
+        toast("未找到登录 token，无法保存到服务器。请先登录系统。");
+        if (typeof showLoginOverlay === "function") showLoginOverlay();
+        return;
+    }
+
+    try {
+        const res = await fetch(getShipmentApiUrl(), {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer " + token
+            },
+            body: JSON.stringify(payload)
+        });
+
+        let result = {};
+        try { result = await res.json(); } catch(e) {}
+
+        if (!res.ok || result.status !== "success") {
+            throw new Error(result.detail || ("HTTP " + res.status));
+        }
+
+        ["supplier", "overseas"].forEach(type => {
+            const el = document.getElementById(type + "DraftStatus");
+            if (el) el.textContent = "已保存到服务器 " + (result.updated_at || new Date().toLocaleTimeString("zh-CN", { hour12: false }));
+        });
+
+        toast("审核数据已保存到服务器。");
+    } catch (err) {
+        console.error("saveReviewDraft:", err);
+        toast("保存到服务器失败：" + (err.message || err));
+    }
+}
+
+function restoreDatasetFromServer(type, savedWarehouse) {
+    if (!savedWarehouse || !Array.isArray(savedWarehouse.rows)) return;
+
+    const dataset = createDataset();
+    dataset.fileName = savedWarehouse.source || "服务器已保存数据";
+    dataset.version = savedWarehouse.version || "";
+    dataset.headers = { ...FALLBACK_HEADERS, ...(savedWarehouse.headers || {}) };
+
+    if (type === "supplier") {
+        dataset.headers[11] = "海外库存";
+    }
+
+    dataset.rows = savedWarehouse.rows.map((r, index) => {
+        const item = {
+            id: r.id || (type + "_r_" + index),
+            type,
+            index: Number.isFinite(Number(r.index)) ? Number(r.index) : index,
+            raw: Array.isArray(r.raw) ? r.raw : [],
+            original: r.original || {},
+            edited: r.edited || {},
+            isSummary: Boolean(r.isSummary),
+            isSku: Boolean(r.isSku),
+            changed: false,
+            lowRisk: false,
+            highRisk: false
+        };
+
+        EDITABLE_COLS.forEach(col => {
+            if (item.original[col] === undefined) item.original[col] = item.raw[col] ?? "";
+            if (item.edited[col] === undefined) item.edited[col] = item.raw[col] ?? "";
+        });
+
+        recalcRow(item);
+        return item;
+    });
+
+    store[type] = dataset;
+    renderWarehouse(type);
+    updateStatus(type);
+}
+
+function restoreReviewPayload(payload) {
+    if (!payload || !payload.warehouses) return false;
+
+    restoreDatasetFromServer("supplier", payload.warehouses.supplier);
+    restoreDatasetFromServer("overseas", payload.warehouses.overseas);
+    updateGlobalMetrics();
+
+    const updatedText = payload.updatedAt || payload.savedAt || "";
+    ["supplier", "overseas"].forEach(type => {
+        const el = document.getElementById(type + "DraftStatus");
+        if (el) el.textContent = updatedText ? ("已从服务器载入：" + updatedText) : "已从服务器载入";
+    });
+
+    return true;
+}
+
+async function loadServerReviewState() {
+    const token = getAuthTokenFlexible();
+    if (!token) return;
+
+    try {
+        const res = await fetch(getShipmentApiUrl(), {
+            headers: { "Authorization": "Bearer " + token }
+        });
+
+        let result = {};
+        try { result = await res.json(); } catch(e) {}
+
+        if (res.status === 404 || result.status === "empty") return;
+
+        if (!res.ok || result.status !== "success") {
+            throw new Error(result.detail || ("HTTP " + res.status));
+        }
+
+        const ok = restoreReviewPayload(result.data);
+        if (ok) {
+            const who = result.updated_by ? "，操作人：" + result.updated_by : "";
+            const when = result.updated_at ? result.updated_at : "";
+            toast("已载入服务器审核数据" + (when ? "：" + when : "") + who);
+        }
+    } catch (err) {
+        console.error("loadServerReviewState:", err);
+        toast("读取服务器数据失败：" + (err.message || err));
+    }
+}
+
+function resetAllDrafts() {
+    Object.keys(WAREHOUSES).forEach(type => {
+        store[type].rows.forEach(row => {
+            EDITABLE_COLS.forEach(col => row.edited[col] = row.original[col]);
+            recalcRow(row);
+        });
+        renderWarehouse(type);
+    });
+    updateGlobalMetrics();
+    toast("已恢复所有可编辑列的原始值。");
+}
+
+function exportReviewJson() {
+    const payload = buildReviewPayload();
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "shipment-review-v3-changes.json";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    toast("审核修改 JSON 已导出。口袋里只有修改项，不塞整本账簿。");
+}
+
+function colToLetter(n) {
+    let s = "";
+    while (n > 0) {
+        const m = (n - 1) % 26;
+        s = String.fromCharCode(65 + m) + s;
+        n = Math.floor((n - m) / 26);
+    }
+    return s;
+}
+
+function toast(message) {
+    const el = document.getElementById("toast");
+    el.textContent = message;
+    el.style.display = "block";
+    clearTimeout(window.__shipToastTimer);
+    window.__shipToastTimer = setTimeout(() => { el.style.display = "none"; }, 2600);
+}
+
+function escapeHtml(v) {
+    return String(v ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+function escapeAttr(v) { return escapeHtml(v).replace(/\n/g, " "); }
+
+renderWarehouse("supplier");
+renderWarehouse("overseas");
+updateGlobalMetrics();
+restoreImportPanelState();
+
+function onLoginSuccess() {
+    if (typeof requirePageTag === "function" && !requirePageTag("replenishment")) {
+        if (typeof showLoginOverlay === "function") showLoginOverlay();
+        return;
+    }
+    if (typeof hideLoginOverlay === "function") hideLoginOverlay();
+    loadServerReviewState();
+}
+
+window.addEventListener("DOMContentLoaded", function() {
+    if (typeof isLoggedIn === "function" && isLoggedIn()) {
+        if (typeof requirePageTag === "function" && !requirePageTag("replenishment")) return;
+        if (typeof hideLoginOverlay === "function") hideLoginOverlay();
+        loadServerReviewState();
+    } else if (typeof showLoginOverlay === "function") {
+        showLoginOverlay();
+    }
+});
+</script>
+</body>
+</html>
