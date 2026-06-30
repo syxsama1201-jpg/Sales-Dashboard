@@ -552,7 +552,7 @@ const FALLBACK_HEADERS = {
     18: "最近7天日均",
     19: "forecast日均",
     20: "历史日均",
-    21: "预估日均"
+    21: "可发数量"
 };
 
 let store = {
@@ -711,6 +711,15 @@ function cleanHeader(v) {
     return String(v ?? "").replace(/\n/g, " ").trim();
 }
 
+function applyWarehouseHeaderOverrides(dataset, type) {
+    dataset.headers[21] = "可发数量";
+    if (type === "supplier") {
+        dataset.headers[11] = "海外库存";
+    } else if (type === "overseas") {
+        dataset.headers[11] = "FBA库存数量";
+    }
+}
+
 function handleExcelUpload(event, type) {
     const file = event.target.files[0];
     if (!file) return;
@@ -768,9 +777,7 @@ function ingestRows(rows, sourceName, type) {
         });
     }
 
-    if (type === "supplier") {
-        dataset.headers[11] = "海外库存";
-    }
+    applyWarehouseHeaderOverrides(dataset, type);
 
     block.dataRows.forEach((raw, index) => {
         dataset.rows.push(buildRow(raw, index, type));
@@ -816,15 +823,18 @@ function recalcRow(row) {
     const F = toNumber(row.edited[5], toNumber(row.raw[5], toNumber(row.raw[4], 0)));
     const J = toNumber(row.edited[9], toNumber(row.raw[9], 0));
     const L = toNumber(row.raw[11], 0);
+    const Q = toNumber(row.edited[16], toNumber(row.raw[16], 0));
+    const V = toNumber(row.raw[21], 0);
+    const targetDays = row.type === "overseas" ? 60 : 105;
 
     row.raw[5] = F;
     row.raw[6] = safeDiv(L, F);               // G = L / F
-    row.raw[7] = Math.round(Math.max(F * 105 - L, 0)); // H = MAX(F*105 - L, 0)
+    row.raw[7] = Math.round(Math.min(Math.max(targetDays * F - L - J - Q, 0), V)); // H = MIN(MAX(T*F - L - J - Q, 0), V)
     row.raw[8] = safeDiv(row.raw[7] + L, F);  // I = (H + L) / F
     row.raw[9] = J;
     row.raw[10] = safeDiv(J + L, F);          // K = (J + L) / F
     row.raw[12] = row.edited[12] ?? "";
-    row.raw[16] = toNumber(row.edited[16], 0);
+    row.raw[16] = Q;
 
     row.changed = Array.from(EDITABLE_COLS).some(col => String(row.edited[col] ?? "") !== String(row.original[col] ?? ""));
 
@@ -1129,7 +1139,7 @@ function buildReviewPayload() {
         savedAt: new Date().toISOString(),
         displayCols: "A:M,Q:V",
         editableCols: "F,J,M,Q",
-        calculatedCols: "G=L/F,H=MAX(F*105-L,0),I=(H+L)/F,K=(J+L)/F",
+        calculatedCols: "G=L/F,H=supplier:MIN(MAX(105*F-L-J-Q,0),V);overseas:MIN(MAX(60*F-L-J-Q,0),V),I=(H+L)/F,K=(J+L)/F",
         summary: {
             skuCount,
             supplierShipTotal,
@@ -1233,9 +1243,7 @@ function restoreDatasetFromServer(type, savedWarehouse) {
     dataset.version = savedWarehouse.version || "";
     dataset.headers = { ...FALLBACK_HEADERS, ...(savedWarehouse.headers || {}) };
 
-    if (type === "supplier") {
-        dataset.headers[11] = "海外库存";
-    }
+    applyWarehouseHeaderOverrides(dataset, type);
 
     dataset.rows = savedWarehouse.rows.map((r, index) => {
         const item = {
