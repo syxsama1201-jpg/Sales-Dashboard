@@ -265,6 +265,15 @@ body {
 }
 .ship-table tbody tr:hover td { background: #fafcff; }
 .ship-table tbody tr.summary-row td { background: #fafbff; font-weight: 700; }
+.ship-table tbody tr.generated-summary-row td {
+    position: sticky;
+    top: 30px;
+    z-index: 2;
+    background: #fffaf1;
+    font-weight: 600;
+    box-shadow: 0 1px 0 var(--ship-line), 0 -1px 0 var(--ship-line);
+}
+.ship-table tbody tr.generated-summary-row td.summary-fixed-label { font-weight: 800; }
 .ship-table tbody tr.warn-low td { background: #fffaf1; }
 .ship-table tbody tr.warn-high td { background: #fffaf1; }
 .ship-table tbody tr.warn-over td { background: #fff8f8; }
@@ -522,6 +531,7 @@ const EDITABLE_COLS = new Set([5, 9, 12, 16]);
 const NUMERIC_EDIT_COLS = new Set([5, 9, 16]);
 const CALC_COLS = new Set([6, 7, 8, 10]);
 const NUMERIC_DISPLAY_COLS = new Set([4, 5, 6, 7, 8, 9, 10, 11, 16, 17, 18, 19, 20, 21]);
+const SUMMARY_SUM_COLS = new Set([4, 5, 7, 9, 11, 16, 17, 18, 19, 20, 21]);
 
 const FALLBACK_HEADERS = {
     0: "子ASIN",
@@ -646,6 +656,28 @@ function safeDiv(a, b) {
     return Math.round(toNumber(a, 0) / den);
 }
 
+function getDisplayValue(row, col) {
+    return EDITABLE_COLS.has(col) ? row.edited[col] : row.raw[col];
+}
+
+function getWarehouseSummaryValues(type) {
+    const rows = store[type].rows.filter(r => r.isSku);
+    const values = {};
+
+    DISPLAY_COLS.forEach(col => values[col] = "");
+    values[0] = WAREHOUSES[type].label;
+    values[3] = "合计";
+
+    SUMMARY_SUM_COLS.forEach(col => {
+        values[col] = rows.reduce((sum, row) => sum + toNumber(row.raw[col]), 0);
+    });
+
+    values[6] = safeDiv(values[11], values[5]);
+    values[10] = safeDiv(values[11] + values[9], values[5]);
+
+    return values;
+}
+
 function isHeaderRow(row) {
     return String(row[0] || "").trim() === "子ASIN" && String(row[3] || "").trim() === "产品名称";
 }
@@ -654,12 +686,17 @@ function isSummaryRow(row) {
     return String(row[3] || "").trim() === "合计";
 }
 
+function isWarehouseMarkerRow(row) {
+    const firstCell = String(row?.[0] ?? "").trim();
+    return Object.values(WAREHOUSES).some(wh => firstCell === wh.label);
+}
+
 function isBlankRow(row) {
     return !row || row.every(v => v === null || v === undefined || v === "");
 }
 
 function isSkuRow(row) {
-    return !isHeaderRow(row) && !isSummaryRow(row) && Boolean(row[0] || row[2] || row[3]);
+    return !isHeaderRow(row) && !isSummaryRow(row) && !isWarehouseMarkerRow(row) && Boolean(row[0] || row[2] || row[3]);
 }
 
 function normalizeRow(row) {
@@ -699,7 +736,7 @@ function extractWarehouseBlock(rows, type) {
         if (isHeaderRow(row)) headerIndexes.push(idx);
     });
 
-    if (!headerIndexes.length) return { header: null, dataRows: rows.filter(r => !isBlankRow(r)) };
+    if (!headerIndexes.length) return { header: null, dataRows: rows.filter(r => !isBlankRow(r) && !isWarehouseMarkerRow(r)) };
 
     let selectedHeaderIndex = headerIndexes[0];
     for (let i = 0; i < headerIndexes.length; i++) {
@@ -715,7 +752,7 @@ function extractWarehouseBlock(rows, type) {
     const nextHeaderIndex = headerIndexes.find(idx => idx > selectedHeaderIndex) ?? rows.length;
     return {
         header: rows[selectedHeaderIndex],
-        dataRows: rows.slice(selectedHeaderIndex + 1, nextHeaderIndex).filter(r => !isBlankRow(r) && !isHeaderRow(r))
+        dataRows: rows.slice(selectedHeaderIndex + 1, nextHeaderIndex).filter(r => !isBlankRow(r) && !isHeaderRow(r) && !isWarehouseMarkerRow(r))
     };
 }
 
@@ -934,10 +971,27 @@ function renderBody(type) {
     if (!store[type].rows.length) {
         return `<tr><td colspan="20"><div class="ship-empty">请上传${WAREHOUSES[type].label} Excel。这里目前是空港，风声比数据多。</div></td></tr>`;
     }
+    const summaryRow = renderGeneratedSummaryRow(type);
     if (!rows.length) {
-        return `<tr><td colspan="20"><div class="ship-empty">没有匹配数据。筛选器的小网兜有点严格。</div></td></tr>`;
+        return summaryRow + `<tr><td colspan="20"><div class="ship-empty">没有匹配数据。筛选器的小网兜有点严格。</div></td></tr>`;
     }
-    return rows.map(row => renderRow(row)).join("");
+    return summaryRow + rows.map(row => renderRow(row)).join("");
+}
+
+function renderGeneratedSummaryRow(type) {
+    const values = getWarehouseSummaryValues(type);
+    const cells = DISPLAY_COLS.map(col => {
+        const value = values[col];
+        const isNum = NUMERIC_DISPLAY_COLS.has(col);
+        const cls = [
+            isNum ? "ship-num" : "",
+            col === 3 ? "product-name" : "",
+            col === 0 || col === 3 ? "summary-fixed-label" : ""
+        ].filter(Boolean).join(" ");
+        return `<td class="${cls}">${isNum ? fmt(value) : escapeHtml(value)}</td>`;
+    }).join("");
+
+    return `<tr class="summary-row generated-summary-row">${cells}<td><span class="ship-tag blue">合计</span></td></tr>`;
 }
 
 function renderRow(row) {
@@ -954,7 +1008,7 @@ function renderRow(row) {
 }
 
 function renderCell(row, col) {
-    const value = EDITABLE_COLS.has(col) ? row.edited[col] : row.raw[col];
+    const value = getDisplayValue(row, col);
     const isNum = NUMERIC_DISPLAY_COLS.has(col) || NUMERIC_EDIT_COLS.has(col);
     const cls = [isNum ? "ship-num" : "", col === 3 ? "product-name" : ""].filter(Boolean).join(" ");
 
@@ -995,12 +1049,8 @@ function updateGlobalMetrics() {
     const skuRows = allRows.filter(r => r.isSku);
     const changed = skuRows.filter(r => r.changed);
     const risks = skuRows.filter(r => r.statusKey && r.statusKey !== "normal");
-    const supplierShipTotal = store.supplier.rows
-        .filter(r => r.isSku)
-        .reduce((sum, r) => sum + toNumber(r.edited[9]), 0);
-    const overseasShipTotal = store.overseas.rows
-        .filter(r => r.isSku)
-        .reduce((sum, r) => sum + toNumber(r.edited[9]), 0) / 2;
+    const supplierShipTotal = getWarehouseSummaryValues("supplier")[9];
+    const overseasShipTotal = getWarehouseSummaryValues("overseas")[9];
 
     document.getElementById("skuCount").textContent = fmt(skuRows.length);
     document.getElementById("supplierShipTotal").textContent = fmt(supplierShipTotal);
@@ -1070,12 +1120,8 @@ function buildReviewPayload() {
         };
     });
 
-    const supplierShipTotal = store.supplier.rows
-        .filter(r => r.isSku)
-        .reduce((sum, r) => sum + toNumber(r.edited[9]), 0);
-    const overseasShipTotal = store.overseas.rows
-        .filter(r => r.isSku)
-        .reduce((sum, r) => sum + toNumber(r.edited[9]), 0) / 2;
+    const supplierShipTotal = getWarehouseSummaryValues("supplier")[9];
+    const overseasShipTotal = getWarehouseSummaryValues("overseas")[9];
     const skuCount = [...store.supplier.rows, ...store.overseas.rows].filter(r => r.isSku).length;
     const changedCount = [...store.supplier.rows, ...store.overseas.rows].filter(r => r.isSku && r.changed).length;
 
@@ -1294,7 +1340,7 @@ function exportReviewJson() {
 }
 
 function getExportCellValue(row, col) {
-    const value = EDITABLE_COLS.has(col) ? row.edited[col] : row.raw[col];
+    const value = getDisplayValue(row, col);
     if (value === null || value === undefined) return "";
     return isNumericLike(value) ? Math.round(toNumber(value)) : value;
 }
@@ -1306,13 +1352,15 @@ function buildWarehouseExportRows(type) {
         const letter = colToLetter(col + 1);
         return `${letter} ${dataset.headers[col] || FALLBACK_HEADERS[col] || ("列" + (col + 1))}`;
     }).concat("状态");
+    const summaryValues = getWarehouseSummaryValues(type);
+    const summaryRow = DISPLAY_COLS.map(col => summaryValues[col] ?? "").concat("合计");
     const rows = dataset.rows.map(row => {
         const data = DISPLAY_COLS.map(col => getExportCellValue(row, col));
         data.push(row.isSummary ? "合计" : getStatusInfo(row).text);
         return data;
     });
 
-    return [[title], header].concat(rows);
+    return [[title], header, summaryRow].concat(rows);
 }
 
 function exportReviewXlsx() {

@@ -24,6 +24,75 @@ function clearAuth() {
     localStorage.removeItem(AUTH_KEY);
 }
 
+const NAV_PERMISSION_BY_HREF = {
+    'index.html': 'sales',
+    'inventory.html': 'inventory',
+    'vc_replenishment_model.html': 'replenishment',
+    'shipment_audit.html': 'replenishment',
+    'history.html': 'history'
+};
+
+function getNavFileName(href) {
+    if (!href || href === '#') return '';
+    try {
+        const url = new URL(href, window.location.href);
+        const fileName = url.pathname.split('/').pop();
+        return fileName || 'index.html';
+    } catch(e) {
+        return String(href).split('/').pop() || '';
+    }
+}
+
+function applySidebarPermissions() {
+    const tags = getUserTags();
+    document.querySelectorAll('.sidebar .nav-item').forEach(function(item) {
+        const pageTag = item.getAttribute('data-page-tag') || NAV_PERMISSION_BY_HREF[getNavFileName(item.getAttribute('href'))];
+        if (!pageTag) return;
+        item.setAttribute('data-page-tag', pageTag);
+        item.style.display = tags.indexOf(pageTag) === -1 ? 'none' : '';
+    });
+}
+
+function updateLogoutButton() {
+    const btn = document.getElementById('logoutBtn');
+    if (!btn) return;
+    btn.style.display = isLoggedIn() ? 'inline-flex' : 'none';
+}
+
+function doLogout() {
+    clearAuth();
+    applySidebarPermissions();
+    updateLogoutButton();
+    if (typeof showLoginOverlay === 'function') {
+        showLoginOverlay();
+    } else {
+        window.location.reload();
+    }
+}
+
+function initLogoutControl() {
+    const headerRight = document.querySelector('.top-header .header-right');
+    if (!headerRight || document.getElementById('logoutBtn')) {
+        updateLogoutButton();
+        return;
+    }
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.id = 'logoutBtn';
+    btn.className = 'logout-btn';
+    btn.textContent = '\u9000\u51fa';
+    btn.title = '\u9000\u51fa\u767b\u5f55';
+    btn.addEventListener('click', doLogout);
+    headerRight.appendChild(btn);
+    updateLogoutButton();
+}
+
+function refreshSessionChrome() {
+    initLogoutControl();
+    applySidebarPermissions();
+}
+
 function getToken() {
     const auth = getStoredAuth();
     if (!auth || !auth.token) return null;
@@ -94,6 +163,7 @@ async function doLogin() {
                 expires_at: Math.floor(Date.now() / 1000) + data.expires_in
             });
             hideLoginOverlay();
+            refreshSessionChrome();
             // 由各页面自行注册 onLoginSuccess 回调来加载数据
             if (typeof onLoginSuccess === 'function') {
                 onLoginSuccess();
@@ -302,6 +372,12 @@ window.toggleDropdown = function(event, btn) {
 })();
 
 // ==================== 全局事件监听 ====================
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', refreshSessionChrome);
+} else {
+    refreshSessionChrome();
+}
 
 // 回车键快捷登录
 document.addEventListener('keydown', function(e) {
