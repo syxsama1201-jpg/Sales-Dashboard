@@ -229,7 +229,7 @@ body {
 .ship-tag.red { background: rgba(232,85,85,.12); color: #d94545; }
 .ship-tag.blue { background: rgba(74,158,245,.12); color: #3d8ce8; }
 
-.ship-table-wrap { overflow: auto; max-height: 420px; }
+.ship-table-wrap { overflow-x: auto; overflow-y: hidden; max-height: none; }
 .ship-table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 1760px; }
 
 .ship-table thead th {
@@ -1045,11 +1045,22 @@ function getStatusTag(row) {
 function updateEditable(type, rowId, col, value) {
     const row = store[type].rows.find(r => r.id === rowId);
     if (!row) return;
+    const scrollContainer = document.querySelector(".content-scrollable");
+    const tableWrap = document.querySelector(`#${type}Section .ship-table-wrap`);
+    const previousScrollTop = scrollContainer ? scrollContainer.scrollTop : window.scrollY;
+    const previousScrollLeft = tableWrap ? tableWrap.scrollLeft : 0;
 
     row.edited[col] = NUMERIC_EDIT_COLS.has(col) ? Math.round(toNumber(value)) : value;
     recalcRow(row);
     updateGlobalMetrics();
     renderWarehouse(type);
+    const nextTableWrap = document.querySelector(`#${type}Section .ship-table-wrap`);
+    if (nextTableWrap) nextTableWrap.scrollLeft = previousScrollLeft;
+    if (scrollContainer) {
+        scrollContainer.scrollTop = previousScrollTop;
+    } else {
+        window.scrollTo(window.scrollX, previousScrollTop);
+    }
     const draftEl = document.getElementById(type + "DraftStatus");
     if (draftEl) draftEl.textContent = "有未保存修改";
 }
