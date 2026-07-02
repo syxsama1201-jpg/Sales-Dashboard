@@ -3,7 +3,7 @@
 body { background-color: #f2f3f5; display: flex; height: 100vh; overflow: hidden; }
 
 /* 侧边栏样式 */
-.sidebar { width: 40px; background-color: #1d232d; color: #fff; display: flex; flex-direction: column; align-items: center; padding: 15px 0; flex-shrink: 0; }
+.sidebar { width: 50px; background-color: #1d232d; color: #fff; display: flex; flex-direction: column; align-items: center; padding: 15px 0; flex-shrink: 0; }
 .sidebar-logo { width: 30px; height: 30px; background-color: #fff; margin-bottom: 20px; border-radius: 4px; }
 .nav-item { width: 100%; padding: 12px 0; text-align: center; font-size: 12px; color: #a9adb2; cursor: pointer; text-decoration: none; display: block; }
 .nav-item:hover { color: #fff; background-color: rgba(255,255,255,0.05); }
@@ -20,22 +20,6 @@ body { background-color: #f2f3f5; display: flex; height: 100vh; overflow: hidden
 .close-icon-placeholder { width: 12px; height: 12px; background-color: #c9cdd4; }
 .header-right { display: flex; align-items: center; gap: 15px; }
 .user-avatar-placeholder { width: 28px; height: 28px; background-color: #e5e6eb; border-radius: 50%; }
-.logout-btn {
-    height: 24px;
-    padding: 0 10px;
-    border: 1px solid #e5e6eb;
-    border-radius: 2px;
-    background: #fff;
-    color: #4e5969;
-    font-size: 12px;
-    cursor: pointer;
-    font-family: inherit;
-}
-.logout-btn:hover {
-    color: #f53f3f;
-    border-color: #f53f3f;
-    background: #fff8f8;
-}
 
 /* 主区域内容滚动容器 */
 .content-scrollable { flex: 1; padding: 4px 16px 16px 16px; display: flex; flex-direction: column; overflow-y: auto; }
@@ -228,3 +212,121 @@ tbody tr:hover td.sticky-col-2 {
 .login-btn:disabled { background: #94b4f7; cursor: not-allowed; }
 .login-error { color: #f53f3f; font-size: 12px; margin-top: 14px; min-height: 18px; }
 .login-footer { margin-top: 20px; font-size: 11px; color: #c9cdd4; }
+
+/* ===== 库存金额页专属样式 ===== */
+.inventory-value-page .inventory-value-stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.inventory-value-page .inventory-value-stat-card {
+    height: 92px;
+    padding: 8px 12px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 6px;
+}
+
+.inventory-value-page .inventory-value-stat-card .stat-header {
+    margin-bottom: 0;
+}
+
+.inventory-value-page .stat-metric-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    min-width: 0;
+    font-size: 12px;
+    color: #4e5969;
+    line-height: 1.2;
+}
+
+.inventory-value-page .stat-metric-row strong {
+    font-size: 16px;
+    color: #1d2129;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.inventory-value-page .inventory-value-table .col-image {
+    width: 70px;
+    min-width: 70px;
+    max-width: 70px;
+}
+
+.inventory-value-page .inventory-value-table thead tr:first-child th {
+    top: 0;
+    height: 32px;
+    z-index: 30;
+}
+
+.inventory-value-page .inventory-value-table thead tr:nth-child(2) th {
+    top: 32px;
+    height: 34px;
+    z-index: 29;
+}
+
+.inventory-value-page .inventory-value-table .sticky-col-group-products,
+.inventory-value-page .inventory-value-table .sticky-col-1,
+.inventory-value-page .inventory-value-table .sticky-col-2,
+.inventory-value-page .inventory-value-table .sticky-col-3,
+.inventory-value-page .inventory-value-table .sticky-col-4,
+.inventory-value-page .inventory-value-table .sticky-col-5 {
+    position: sticky;
+    background-clip: padding-box;
+}
+
+.inventory-value-page .inventory-value-table thead tr:first-child th.sticky-col-group-products {
+    left: 0;
+    z-index: 46;
+    background-color: #f7f8fa;
+}
+
+.inventory-value-page .inventory-value-table thead tr:nth-child(2) th.sticky-col-1,
+.inventory-value-page .inventory-value-table thead tr:nth-child(2) th.sticky-col-2,
+.inventory-value-page .inventory-value-table thead tr:nth-child(2) th.sticky-col-3,
+.inventory-value-page .inventory-value-table thead tr:nth-child(2) th.sticky-col-4,
+.inventory-value-page .inventory-value-table thead tr:nth-child(2) th.sticky-col-5 {
+    z-index: 45;
+    background-color: #f7f8fa;
+}
+
+.inventory-value-page .inventory-value-table tbody td.sticky-col-1,
+.inventory-value-page .inventory-value-table tbody td.sticky-col-2,
+.inventory-value-page .inventory-value-table tbody td.sticky-col-3,
+.inventory-value-page .inventory-value-table tbody td.sticky-col-4,
+.inventory-value-page .inventory-value-table tbody td.sticky-col-5 {
+    z-index: 12;
+    background-color: #fff;
+}
+
+.inventory-value-page .inventory-value-table tbody tr:hover td.sticky-col-1,
+.inventory-value-page .inventory-value-table tbody tr:hover td.sticky-col-2,
+.inventory-value-page .inventory-value-table tbody tr:hover td.sticky-col-3,
+.inventory-value-page .inventory-value-table tbody tr:hover td.sticky-col-4,
+.inventory-value-page .inventory-value-table tbody tr:hover td.sticky-col-5 {
+    background-color: #f2f3f5;
+}
+
+.inventory-value-page .inventory-value-summary-row td {
+    position: sticky;
+    top: 66px;
+    z-index: 24;
+    background-color: #fff8e8;
+    font-weight: 600;
+    color: #1d2129;
+}
+
+.inventory-value-page .inventory-value-table tbody tr.inventory-value-summary-row td.sticky-col-1,
+.inventory-value-page .inventory-value-table tbody tr.inventory-value-summary-row td.sticky-col-2,
+.inventory-value-page .inventory-value-table tbody tr.inventory-value-summary-row td.sticky-col-3,
+.inventory-value-page .inventory-value-table tbody tr.inventory-value-summary-row td.sticky-col-4,
+.inventory-value-page .inventory-value-table tbody tr.inventory-value-summary-row td.sticky-col-5 {
+    z-index: 50;
+    background-color: #fff3d6;
+}
+
+.inventory-value-page .inventory-value-summary-row .summary-label {
+    color: #d89020;
+}

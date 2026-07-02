@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>库存金额 - 控制面板</title>
+    <link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body class="inventory-value-page">
+
+    <!-- ===== 登录遮罩层 ===== -->
+    <div id="loginOverlay" class="login-overlay hidden">
+        <div class="login-card">
+            <div class="login-title">库存金额</div>
+            <div class="login-subtitle">请输入账号密码登录</div>
+            <input type="text" id="loginUser" class="login-input" placeholder="用户名" autocomplete="username">
+            <input type="password" id="loginPass" class="login-input" placeholder="密码" autocomplete="current-password">
+            <button id="loginBtn" class="login-btn" onclick="doLogin()">登 录</button>
+            <div id="loginError" class="login-error"></div>
+            <div class="login-footer">Acme Zone 数据看板</div>
+        </div>
+    </div>
+
+    <!-- ===== 侧边栏 ===== -->
+    <div class="sidebar">
+        <div class="sidebar-logo"></div>
+        <a class="nav-item" href="index.html">
+            <div class="nav-icon-placeholder"></div>首页
+        </a>
+        <a class="nav-item" href="index.html">
+            <div class="nav-icon-placeholder"></div>销售
+        </a>
+        <a class="nav-item" href="inventory.html">
+            <div class="nav-icon-placeholder"></div>库存
+        </a>
+        <a class="nav-item active" href="inventory_value.html">
+            <div class="nav-icon-placeholder" style="background-color:#fff;"></div>库存金额
+        </a>
+        <a class="nav-item" href="vc_replenishment_model.html">
+            <div class="nav-icon-placeholder"></div>发货
+        </a>
+        <a class="nav-item" href="history.html">
+            <div class="nav-icon-placeholder"></div>历史
+        </a>
+        <a class="nav-item" href="duffle-bag-report.html">
+            <div class="nav-icon-placeholder"></div>开发
+        </a>
+        <a class="nav-item erp" href="#">
+            <div class="nav-icon-placeholder" style="background-color:#fff;"></div>ERP
+        </a>
+    </div>
+
+    <!-- ===== 主内容区 ===== -->
+    <div class="main-container">
+        <header class="top-header">
+            <div class="header-tabs">
+                <div class="tab active">库存金额<div class="close-icon-placeholder"></div></div>
+            </div>
+            <div class="header-right">
+                <div class="user-avatar-placeholder"></div>
+            </div>
+        </header>
+
+        <main class="content-scrollable">
+            <div class="page-title-row">
+                <div class="title-group">
+                    <h2>库存金额<div style="width:16px;height:16px;background:#165dff;border-radius: 2px;display: inline-block;vertical-align: middle;"></div></h2>
+                    <div class="update-time" style="margin-left: 60px;">更新时间
+                        <span id="target-time"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="filter-row">
+                <div class="select-placeholder">全部店铺 <div class="arrow-placeholder"></div></div>
+                <div class="select-placeholder">全部仓库 <div class="arrow-placeholder"></div></div>
+            </div>
+
+            <!-- ===== 库存总览卡片 ===== -->
+            <div class="stats-grid inventory-value-stats" id="inventory-cards">
+                <div class="stat-card inventory-value-stat-card">
+                    <div class="stat-header">全渠道统计</div>
+                    <div class="stat-metric-row">
+                        <span>金额</span>
+                        <strong id="card-total-amount">--</strong>
+                    </div>
+                    <div class="stat-metric-row">
+                        <span>库存</span>
+                        <strong id="card-total-quantity">--</strong>
+                    </div>
+                </div>
+                <div class="stat-card inventory-value-stat-card">
+                    <div class="stat-header">海外统计</div>
+                    <div class="stat-metric-row">
+                        <span>金额</span>
+                        <strong id="card-overseas-amount">--</strong>
+                    </div>
+                    <div class="stat-metric-row">
+                        <span>库存</span>
+                        <strong id="card-overseas-quantity">--</strong>
+                    </div>
+                </div>
+                <div class="stat-card inventory-value-stat-card">
+                    <div class="stat-header">供应商仓统计</div>
+                    <div class="stat-metric-row">
+                        <span>金额</span>
+                        <strong id="card-supplier-amount">--</strong>
+                    </div>
+                    <div class="stat-metric-row">
+                        <span>库存</span>
+                        <strong id="card-supplier-quantity">--</strong>
+                    </div>
+                </div>
+                <div class="stat-card inventory-value-stat-card">
+                    <div class="stat-header">杰戈统计</div>
+                    <div class="stat-metric-row">
+                        <span>金额</span>
+                        <strong id="card-jiege-amount">--</strong>
+                    </div>
+                    <div class="stat-metric-row">
+                        <span>库存</span>
+                        <strong id="card-jiege-quantity">--</strong>
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-toolbar">
+                <div class="toolbar-left">
+                    <div class="search-group">
+                        <div style="padding: 0 8px; border-right:1px solid #e5e6eb; line-height:22px; width:80px; box-sizing: border-box; text-align: center; color: #4e5969;">搜索</div>
+                        <input type="text" id="searchInput" placeholder="品名 / SKU / ASIN" oninput="handleSearch(event)" style="padding: 0 8px; border:none; line-height:22px; width:200px; box-sizing: border-box; font-size:10px; color: #1d2129;">
+                    </div>
+                </div>
+                <div class="toolbar-right">
+                    <button class="download-btn" onclick="downloadCSV()" title="导出当前表格为CSV">⬇ 下载</button>
+                    <span id="toolbar-total-count">共 0 条</span>
+                </div>
+            </div>
+
+            <!-- ===== 库存数据表格 ===== -->
+            <div class="table-container">
+                <table class="inventory-value-table">
+                    <thead>
+                        <tr>
+                            <!-- 第一行：分类 -->
+                            <th colspan="5" class="sticky-row1 sticky-col-group-products">产品信息</th>
+                            <th colspan="10">海外库存情况</th>
+                            <th colspan="7">国内库存金额</th>
+                            <th colspan="7">国内库存数量</th>
+                        </tr>
+                        <tr>
+                            <!-- 第二行：标题（与飞书字段对应） -->
+                            <th class="col-core1-id sticky-col-1">品名</th>
+                            <th class="col-image sticky-col-2">产品图</th>
+                            <th class="col-core2-id sticky-col-3">父ASIN</th>
+                            <th class="col-core2-id sticky-col-4">子ASIN</th>
+                            <th class="col-core2-id sticky-col-5">MSKU</th>
+                            <th class="sortable" onclick="handleSort('FBA在途')">FBA在途 <span id="sort-icon-FBA在途" class="sort-icon sort-none"></span></th>
+                            <th class="sortable" onclick="handleSort('FBA库存')">FBA库存 <span id="sort-icon-FBA库存" class="sort-icon sort-none"></span></th>
+                            <th class="sortable" onclick="handleSort('FBA总量')">FBA总量 <span id="sort-icon-FBA总量" class="sort-icon sort-none"></span></th>
+                            <th class="sortable" onclick="handleSort('FBA总金额')">FBA总金额 <span id="sort-icon-FBA总金额" class="sort-icon sort-none"></span></th>
+                            <th class="sortable" onclick="handleSort('西邮库存')">西邮库存 <span id="sort-icon-西邮库存" class="sort-icon sort-none"></span></th>
+                            <th class="sortable" onclick="handleSort('西邮库存金额')">西邮库存金额 <span id="sort-icon-西邮库存金额" class="sort-icon sort-none"></span></th>
+                            <th class="sortable" onclick="handleSort('LNK总量')">LNK总量 <span id="sort-icon-LNK总量" class="sort-icon sort-none"></span></th>
+                            <th class="sortable" onclick="handleSort('LNK总金额')">LNK总金额 <span id="sort-icon-LNK总金额" class="sort-icon sort-none"></span></th>
+                            <th class="sortable" onclick="handleSort('海外总量')">海外总量 <span id="sort-icon-海外总量" class="sort-icon sort-none"></span></th>
+                            <th class="sortable" onclick="handleSort('海外总金额')">海外总金额 <span id="sort-icon-海外总金额" class="sort-icon sort-none"></span></th>
+                            <th class="sortable" onclick="handleSort('惠安在途金额')">惠安在途金额 <span id="sort-icon-惠安在途金额" class="sort-icon sort-none"></span></th>
+                            <th class="sortable" onclick="handleSort('惠安库存金额')">惠安库存金额 <span id="sort-icon-惠安库存金额" class="sort-icon sort-none"></span></th>
+                            <th class="sortable" onclick="handleSort('泉州在途金额')">泉州在途金额 <span id="sort-icon-泉州在途金额" class="sort-icon sort-none"></span></th>
+                            <th class="sortable" onclick="handleSort('泉州库存金额')">泉州库存金额 <span id="sort-icon-泉州库存金额" class="sort-icon sort-none"></span></th>
+                            <th class="sortable" onclick="handleSort('杰戈在途金额')">杰戈在途金额 <span id="sort-icon-杰戈在途金额" class="sort-icon sort-none"></span></th>
+                            <th class="sortable" onclick="handleSort('杰戈库存金额')">杰戈库存金额 <span id="sort-icon-杰戈库存金额" class="sort-icon sort-none"></span></th>
+                            <th class="sortable" onclick="handleSort('国内库存金额')">国内库存金额 <span id="sort-icon-国内库存金额" class="sort-icon sort-none"></span></th>
+                            <th class="sortable" onclick="handleSort('惠安在途数量')">惠安在途数量 <span id="sort-icon-惠安在途数量" class="sort-icon sort-none"></span></th>
+                            <th class="sortable" onclick="handleSort('惠安库存数量')">惠安库存数量 <span id="sort-icon-惠安库存数量" class="sort-icon sort-none"></span></th>
+                            <th class="sortable" onclick="handleSort('泉州在途数量')">泉州在途数量 <span id="sort-icon-泉州在途数量" class="sort-icon sort-none"></span></th>
+                            <th class="sortable" onclick="handleSort('泉州库存数量')">泉州库存数量 <span id="sort-icon-泉州库存数量" class="sort-icon sort-none"></span></th>
+                            <th class="sortable" onclick="handleSort('杰戈在途数量')">杰戈在途数量 <span id="sort-icon-杰戈在途数量" class="sort-icon sort-none"></span></th>
+                            <th class="sortable" onclick="handleSort('杰戈库存数量')">杰戈库存数量 <span id="sort-icon-杰戈库存数量" class="sort-icon sort-none"></span></th>
+                            <th class="sortable" onclick="handleSort('国内库存总数')">国内库存总数 <span id="sort-icon-国内库存总数" class="sort-icon sort-none"></span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <!-- ===== 脚本加载 ===== -->
+    <script src="js/common.js"></script>
+    <script src="js/inventory_value.js"></script>
+    <script>
+        window.addEventListener('load', startTimeDisplay);
+    </script>
+</body>
+</html>
