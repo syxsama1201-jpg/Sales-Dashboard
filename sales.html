@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>即时销售报告 - 控制面板</title>
+    <link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body>
+
+    <!-- ===== 登录遮罩层 ===== -->
+    <div id="loginOverlay" class="login-overlay hidden">
+        <div class="login-card">
+            <div class="login-title">即时销售报告</div>
+            <div class="login-subtitle">请输入账号密码登录</div>
+            <input type="text" id="loginUser" class="login-input" placeholder="用户名" autocomplete="username">
+            <input type="password" id="loginPass" class="login-input" placeholder="密码" autocomplete="current-password">
+            <button id="loginBtn" class="login-btn" onclick="doLogin()">登 录</button>
+            <div id="loginError" class="login-error"></div>
+            <div class="login-footer">Acme Zone 数据看板</div>
+        </div>
+    </div>
+
+    <!-- ===== 侧边栏由 common.js 根据最新权限渲染 ===== -->
+    <div class="sidebar" data-active-page="sales"></div>
+
+    <!-- ===== 主内容区 ===== -->
+    <div class="main-container">
+        <header class="top-header">
+            <div class="header-tabs">
+                <div class="tab active">即时销售报告<div class="close-icon-placeholder"></div></div>
+            </div>
+            <div class="header-right">
+                <div class="user-avatar-placeholder"></div>
+            </div>
+        </header>
+
+        <main class="content-scrollable">
+            <div class="page-title-row">
+                <div class="title-group">
+                    <h2>即时销售报告<div style="width:16px;height:16px;background:#165dff;border-radius: 2px;display: inline-block;vertical-align: middle;"></div></h2>
+                    <div class="update-time" style="margin-left: 60px;">更新时间
+                        <span id="target-time"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="filter-row">
+                <div class="select-placeholder">全部店铺 <div class="arrow-placeholder"></div></div>
+                <div class="select-placeholder">USD 美元($) <div class="arrow-placeholder"></div></div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-header">订单量 </div>
+                    <div class="stat-value" id="card-orders-today">--</div>
+                    <div class="stat-footer" id="card-orders-footer"><span>昨日累计 --</span><span class="trend-none">--</span></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-header">销量 </div>
+                    <div class="stat-value" id="card-qty-today">0</div>
+                    <div class="stat-footer" id="card-qty-footer"><span>昨日累计 0</span><span>0.00%</span></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-header">销售额 </div>
+                    <div class="stat-value" id="card-sales-today">$0.00</div>
+                    <div class="stat-footer" id="card-sales-footer"><span>昨日累计 $0.00</span><span>0.00%</span></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-header">订单金额 </div>
+                    <div class="stat-value" id="card-amount-today">$0.00</div>
+                    <div class="stat-footer" id="card-amount-footer"><span>昨日累计 $0.00</span><span>0.00%</span></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-header">平均每单销量 </div>
+                    <div class="stat-value" id="card-avgqty-today">--</div>
+                    <div class="stat-footer" id="card-avgqty-footer"><span>昨日累计 --</span><span class="trend-none">--</span></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-header">平均每单净销售额 </div>
+                    <div class="stat-value" id="card-avgprice-today">$0.00</div>
+                    <div class="stat-footer" id="card-avgprice-footer"><span>昨日累计 $0.00</span><span>0.00%</span></div>
+                </div>
+            </div>
+
+            <div class="table-toolbar">
+                <div class="toolbar-left">
+                    <div class="search-group">
+                        <div style="padding: 0 8px; border-right:1px solid #e5e6eb; line-height:22px; width:80px; box-sizing: border-box; text-align: center; color: #4e5969;">搜索</div>
+                        <input type="text" id="searchInput" placeholder="商品名称 / SKU / ASIN" oninput="handleSearch(event)" style="padding: 0 8px; border:none; line-height:22px; width:200px; box-sizing: border-box; font-size:10px; color: #1d2129;">
+                    </div>
+                    <div class="seg-control">
+                        <div class="seg-btn" id="btn-parent" onclick="switchView('parent')">父ASIN</div>
+                        <div class="seg-btn active" id="btn-child" onclick="switchView('child')">子ASIN</div>
+                    </div>
+                </div>
+                <div class="toolbar-right" style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #4e5969;">
+                    <span id="toolbar-total-count">共 0 条</span>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th class="col-core1-id">商品名称</th>
+                            <th>产品图</th>
+                            <th class="col-core2-id">父ASIN</th>
+                            <th class="col-core2-id">子ASIN</th>
+                            <th class="col-core2-id">MSKU</th>
+                            <th>目标销量</th>
+                            <th class="sortable" onclick="handleSort('今日销量')">今日销量 <span id="sort-icon-今日销量" class="sort-icon sort-none"></span></th>
+                            <th class="col-core3-id">环比昨日</th>
+                            <th class="sortable" onclick="handleSort('今日销售额')">今日销售额 <span id="sort-icon-今日销售额" class="sort-icon sort-none"></span></th>
+                            <th>今日单价</th>
+                            <th class="sortable" onclick="handleSort('昨日销量')">昨日销量 <span id="sort-icon-昨日销量" class="sort-icon sort-none"></span></th>
+                            <th class="sortable" onclick="handleSort('昨日销售额')">昨日销售额 <span id="sort-icon-昨日销售额" class="sort-icon sort-none"></span></th>
+                            <th>昨日单价</th>
+                            <th>上周同日销量</th>
+                            <th class="sortable" onclick="handleSort('可售库存')">可售库存 <span id="sort-icon-可售库存" class="sort-icon sort-none"></span></th>
+                            <th class="sortable" onclick="handleSort('可售天数')">可售天数 <span id="sort-icon-可售天数" class="sort-icon sort-none"></span></th>
+                            <th class="col-core4-id">大类排名</th>
+                            <th class="col-core4-id">小类排名</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <!-- ===== 脚本加载（顺序不能变） ===== -->
+    <script src="js/common.js"></script>
+    <script src="js/sales.js"></script>
+    <script>
+        // 页面加载时启动时间显示
+        window.addEventListener('load', startTimeDisplay);
+    </script>
+</body>
+</html>

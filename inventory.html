@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>库存管理 - 控制面板</title>
+    <link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body>
+
+    <!-- ===== 登录遮罩层 ===== -->
+    <div id="loginOverlay" class="login-overlay hidden">
+        <div class="login-card">
+            <div class="login-title">库存管理</div>
+            <div class="login-subtitle">请输入账号密码登录</div>
+            <input type="text" id="loginUser" class="login-input" placeholder="用户名" autocomplete="username">
+            <input type="password" id="loginPass" class="login-input" placeholder="密码" autocomplete="current-password">
+            <button id="loginBtn" class="login-btn" onclick="doLogin()">登 录</button>
+            <div id="loginError" class="login-error"></div>
+            <div class="login-footer">Acme Zone 数据看板</div>
+        </div>
+    </div>
+
+    <!-- ===== 侧边栏由 common.js 根据最新权限渲染 ===== -->
+    <div class="sidebar" data-active-page="inventory"></div>
+
+    <!-- ===== 主内容区 ===== -->
+    <div class="main-container">
+        <header class="top-header">
+            <div class="header-tabs">
+                <div class="tab active">库存管理<div class="close-icon-placeholder"></div></div>
+            </div>
+            <div class="header-right">
+                <div class="user-avatar-placeholder"></div>
+            </div>
+        </header>
+
+        <main class="content-scrollable">
+            <div class="page-title-row">
+                <div class="title-group">
+                    <h2>库存管理<div style="width:16px;height:16px;background:#165dff;border-radius: 2px;display: inline-block;vertical-align: middle;"></div></h2>
+                    <div class="update-time" style="margin-left: 60px;">更新时间
+                        <span id="target-time"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="filter-row">
+                <div class="select-placeholder">全部店铺 <div class="arrow-placeholder"></div></div>
+                <div class="select-placeholder">全部仓库 <div class="arrow-placeholder"></div></div>
+            </div>
+
+            <!-- ===== 库存总览卡片 ===== -->
+            <div class="stats-grid" id="inventory-cards">
+                <div class="stat-card">
+                    <div class="stat-header">SKU数量</div>
+                    <div class="stat-value" id="card-sku-count">--</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-header">全渠道总库存</div>
+                    <div class="stat-value" id="card-sellable">--</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-header">海外总库存</div>
+                    <div class="stat-value" id="card-unsellable">--</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-header">供应商仓总库存</div>
+                    <div class="stat-value" id="card-inbound">--</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-header">采购在途</div>
+                    <div class="stat-value" id="card-total-value">--</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-header">杰戈库存</div>
+                    <div class="stat-value" id="card-alert-count">--</div>
+                </div>
+            </div>
+
+            <div class="table-toolbar">
+                <div class="toolbar-left">
+                    <div class="search-group">
+                        <div style="padding: 0 8px; border-right:1px solid #e5e6eb; line-height:22px; width:80px; box-sizing: border-box; text-align: center; color: #4e5969;">搜索</div>
+                        <input type="text" id="searchInput" placeholder="商品名称 / SKU / ASIN" oninput="handleSearch(event)" style="padding: 0 8px; border:none; line-height:22px; width:200px; box-sizing: border-box; font-size:10px; color: #1d2129;">
+                    </div>
+                </div>
+                <div class="toolbar-right">
+                    <button class="download-btn" onclick="downloadCSV()" title="导出当前表格为CSV">⬇ 下载</button>
+                    <span id="toolbar-total-count">共 0 条</span>
+                </div>
+            </div>
+
+            <!-- ===== 库存数据表格 ===== -->
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <!-- 第一行：分类 -->
+                            <th colspan="5" class="sticky-row1">产品信息</th>
+                            <th colspan="2">总库存数量</th>
+                            <th colspan="5">海外库存</th>
+                            <th colspan="5">供应商库存</th>
+                            <th colspan="5">供应商在途</th>
+                        </tr>
+                        <tr>
+                            <!-- 第二行：标题（与飞书字段对应） -->
+                            <th class="col-core1-id sticky-col-1">产品名称</th>
+                            <th class="sticky-col-2">产品图</th>
+                            <th class="col-core2-id">父ASIN</th>
+                            <th class="col-core2-id">子ASIN</th>
+                            <th class="col-core2-id">MSKU</th>
+                            <th class="sortable" onclick="handleSort('包含生产在途')">包含生产在途 <span id="sort-icon-包含生产在途" class="sort-icon sort-none"></span></th>
+                            <th class="sortable" onclick="handleSort('不含生产在途')">不含生产在途 <span id="sort-icon-不含生产在途" class="sort-icon sort-none"></span></th>
+                            <th class="sortable" onclick="handleSort('海外库存总量')">海外库存总量 <span id="sort-icon-海外库存总量" class="sort-icon sort-none"></span></th>
+                            <th class="sortable" onclick="handleSort('FBA库存')">FBA库存 <span id="sort-icon-FBA库存" class="sort-icon sort-none"></span></th>
+                            <th class="sortable" onclick="handleSort('FBA在途')">FBA在途 <span id="sort-icon-FBA在途" class="sort-icon sort-none"></span></th>
+                            <th class="sortable" onclick="handleSort('西邮库存')">西邮库存 <span id="sort-icon-西邮库存" class="sort-icon sort-none"></span></th>
+                            <th class="sortable" onclick="handleSort('LNK库存')">LNK库存 <span id="sort-icon-LNK库存" class="sort-icon sort-none"></span></th>
+                            <th class="sortable" onclick="handleSort('供应商库存总量')">供应商库存总量 <span id="sort-icon-供应商库存总量" class="sort-icon sort-none"></span></th>
+                            <th class="sortable" onclick="handleSort('杰戈工厂库存')">杰戈工厂库存 <span id="sort-icon-杰戈工厂库存" class="sort-icon sort-none"></span></th>
+                            <th class="sortable" onclick="handleSort('惠安工厂库存')">惠安工厂库存 <span id="sort-icon-惠安工厂库存" class="sort-icon sort-none"></span></th>
+                            <th class="sortable" onclick="handleSort('泉州工厂库存')">泉州工厂库存 <span id="sort-icon-泉州工厂库存" class="sort-icon sort-none"></span></th>
+                            <th class="sortable" onclick="handleSort('江西工厂库存')">江西工厂库存 <span id="sort-icon-江西工厂库存" class="sort-icon sort-none"></span></th>
+                            <th class="sortable" onclick="handleSort('供应商在途总量')">供应商在途总量 <span id="sort-icon-供应商在途总量" class="sort-icon sort-none"></span></th>
+                            <th class="sortable" onclick="handleSort('杰戈工厂在途')">杰戈工厂在途 <span id="sort-icon-杰戈工厂在途" class="sort-icon sort-none"></span></th>
+                            <th class="sortable" onclick="handleSort('惠安工厂在途')">惠安工厂在途 <span id="sort-icon-惠安工厂在途" class="sort-icon sort-none"></span></th>
+                            <th class="sortable" onclick="handleSort('泉州工厂在途')">泉州工厂在途 <span id="sort-icon-泉州工厂在途" class="sort-icon sort-none"></span></th>
+                            <th class="sortable" onclick="handleSort('江西工厂在途')">江西工厂在途 <span id="sort-icon-江西工厂在途" class="sort-icon sort-none"></span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <!-- ===== 脚本加载 ===== -->
+    <script src="js/common.js"></script>
+    <script src="js/inventory.js"></script>
+    <script>
+        window.addEventListener('load', startTimeDisplay);
+    </script>
+</body>
+</html>

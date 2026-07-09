@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>历史销量数据 - 控制面板</title>
+    <link rel="stylesheet" href="css/dashboard.css">
+    <style>
+        /* 历史页专属：前三列固定，便于横向查看多年月份数据时仍能识别产品。 */
+        .history-meta-col {
+            position: sticky;
+            z-index: 15;
+            background-color: #f7f8fa;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        tbody td.history-meta-col {
+            position: sticky;
+            z-index: 5;
+            background-color: #fff;
+            font-weight: 500;
+        }
+        tbody tr:hover td.history-meta-col {
+            background-color: #f2f3f5;
+        }
+        .history-product-col {
+            width: 180px;
+            min-width: 180px;
+            max-width: 180px;
+            left: 0;
+        }
+        .history-parent-col {
+            width: 130px;
+            min-width: 130px;
+            max-width: 130px;
+            left: 180px;
+        }
+        .history-child-col {
+            width: 130px;
+            min-width: 130px;
+            max-width: 130px;
+            left: 310px;
+        }
+        /* 月份列统一宽度 */
+        .col-month {
+            width: 72px;
+            min-width: 72px;
+            text-align: right;
+            padding: 6px 8px;
+        }
+        th.col-month {
+            text-align: center;
+            font-size: 10px;
+        }
+        /* 下载按钮样式（沿用 inventory 的样式） */
+    </style>
+</head>
+<body>
+
+    <!-- ===== 登录遮罩层 ===== -->
+    <div id="loginOverlay" class="login-overlay hidden">
+        <div class="login-card">
+            <div class="login-title">历史销量数据</div>
+            <div class="login-subtitle">请输入账号密码登录</div>
+            <input type="text" id="loginUser" class="login-input" placeholder="用户名" autocomplete="username">
+            <input type="password" id="loginPass" class="login-input" placeholder="密码" autocomplete="current-password">
+            <button id="loginBtn" class="login-btn" onclick="doLogin()">登 录</button>
+            <div id="loginError" class="login-error"></div>
+            <div class="login-footer">Acme Zone 数据看板</div>
+        </div>
+    </div>
+
+    <!-- ===== 侧边栏由 common.js 根据最新权限渲染 ===== -->
+    <div class="sidebar" data-active-page="history"></div>
+
+    <!-- ===== 主内容区 ===== -->
+    <div class="main-container">
+        <header class="top-header">
+            <div class="header-tabs">
+                <div class="tab active">历史销量数据<div class="close-icon-placeholder"></div></div>
+            </div>
+            <div class="header-right">
+                <div class="user-avatar-placeholder"></div>
+            </div>
+        </header>
+
+        <main class="content-scrollable">
+            <div class="page-title-row">
+                <div class="title-group">
+                    <h2>历史销量数据<div style="width:16px;height:16px;background:#165dff;border-radius: 2px;display: inline-block;vertical-align: middle;"></div></h2>
+                    <div class="update-time" style="margin-left: 60px;">更新时间
+                        <span id="target-time"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 无 filter-row 卡片区域 -->
+
+
+
+            <div class="table-toolbar">
+                <div class="toolbar-left">
+                    <div class="search-group">
+                        <div style="padding: 0 8px; border-right:1px solid #e5e6eb; line-height:22px; width:80px; box-sizing: border-box; text-align: center; color: #4e5969;">搜索</div>
+                        <input type="text" id="searchInput" placeholder="品名 / 父ASIN / 子ASIN" oninput="handleSearch(event)" style="padding: 0 8px; border:none; line-height:22px; width:200px; box-sizing: border-box; font-size:10px; color: #1d2129;">
+                    </div>
+                </div>
+                <div class="toolbar-right">
+                    <button class="download-btn" onclick="downloadCSV()" title="导出当前表格为CSV">⬇ 下载</button>
+                    <span id="toolbar-total-count">共 0 条</span>
+                </div>
+            </div>
+
+            <div class="table-container" style="overflow-x: auto;">
+                <table>
+                    <thead id="table-head">
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <!-- ===== 脚本加载 ===== -->
+    <script src="js/common.js"></script>
+    <script src="js/history.js"></script>
+    <script>
+        window.addEventListener('load', startTimeDisplay);
+    </script>
+</body>
+</html>

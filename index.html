@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acme Zone</title>
+    <link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body class="front-page">
+
+    <!-- ===== 登录遮罩层 ===== -->
+    <div id="loginOverlay" class="login-overlay hidden">
+        <div class="login-card">
+            <div class="login-title">Acme Zone 数据看板</div>
+            <div class="login-subtitle">请输入账号密码登录</div>
+            <input type="text" id="loginUser" class="login-input" placeholder="用户名" autocomplete="username">
+            <input type="password" id="loginPass" class="login-input" placeholder="密码" autocomplete="current-password">
+            <button id="loginBtn" class="login-btn" onclick="doLogin()">登 录</button>
+            <div id="loginError" class="login-error"></div>
+            <div class="login-footer">Acme Zone 数据看板</div>
+        </div>
+    </div>
+
+    <!-- ===== 侧边栏由 common.js 根据最新权限渲染 ===== -->
+    <div class="sidebar" data-active-page="home"></div>
+
+    <main class="front-content">
+        <section class="front-panel">
+            <img class="front-logo" src="logo.png" alt="Acme Zone logo">
+            <div class="front-subline"></div>
+        </section>
+    </main>
+
+    <script src="js/common.js"></script>
+    <script>
+        initPublicPage({ activeKey: 'home' });
+    </script>
+</body>
+</html>

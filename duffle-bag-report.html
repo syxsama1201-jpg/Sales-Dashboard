@@ -1,0 +1,1207 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Amazon 美国站 Duffle Bag 市场调研报告</title>
+  <link rel="stylesheet" href="css/dashboard.css">
+  <style>
+    :root {
+      --bg: #f4f7f8;
+      --paper: #ffffff;
+      --ink: #121821;
+      --muted: #60707d;
+      --soft: #e8eef1;
+      --line: #dfe7eb;
+      --green: #0e8f72;
+      --green-soft: #e7f7f1;
+      --blue: #2364d2;
+      --teal: #159c9c;
+      --amber: #d9972a;
+      --red: #d94a4a;
+      --nav: #ffffff;
+      --dark: #111820;
+      --radius: 8px;
+      --shadow: 0 10px 30px rgba(35, 54, 67, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    a { color: inherit; text-decoration: none; }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      min-height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 10px 10px;
+      background: rgba(255,255,255,0.94);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(12px);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .brand-mark {
+      width: 32px;
+      height: 32px;
+      border-radius: 7px;
+      background: var(--dark);
+      display: grid;
+      place-items: center;
+      color: #fff;
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+
+    .brand strong {
+      display: block;
+      font-size: 14px;
+      line-height: 1.2;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .brand span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.2;
+      margin-top: 3px;
+    }
+
+    .source-pill {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .source-pill span {
+      padding: 6px 10px;
+      background: #f8fafb;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 244px minmax(0, 1fr);
+      gap: 18px;
+      width: min(1320px, 100%);
+      margin: 0 auto;
+      padding: 18px 20px 52px;
+    }
+
+    aside {
+      position: sticky;
+      top: 76px;
+      height: calc(100vh - 94px);
+      overflow: auto;
+      align-self: start;
+      background: var(--nav);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 18px 14px;
+    }
+
+    .nav-title {
+      font-size: 13px;
+      color: #31414c;
+      font-weight: 800;
+      padding: 0 10px 10px;
+      border-bottom: 1px solid var(--soft);
+      margin-bottom: 10px;
+    }
+
+    .nav-section {
+      margin: 14px 0 8px;
+      padding: 0 10px;
+      color: var(--green);
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    nav a {
+      display: block;
+      padding: 9px 10px;
+      border-radius: 6px;
+      color: #41515d;
+      font-size: 13px;
+      line-height: 1.25;
+      margin-bottom: 3px;
+    }
+
+    nav a:hover,
+    nav a.active {
+      background: var(--green-soft);
+      color: var(--green);
+      font-weight: 800;
+    }
+
+    main {
+      min-width: 0;
+    }
+
+    /* 报告内容区域样式覆盖 */
+    .content-scrollable {
+      font-family: Arial, "Microsoft YaHei", "PingFang SC", sans-serif;
+      font-size: 14px;
+      line-height: 1.65;
+      color: var(--ink);
+      background:
+        linear-gradient(90deg, rgba(14,143,114,0.03), transparent 28%),
+        var(--bg);
+      padding: 0;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.18fr) minmax(320px, 0.82fr);
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      margin-bottom: 18px;
+    }
+
+    .hero-copy {
+      padding: 28px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--green);
+      background: var(--green-soft);
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 800;
+      margin-bottom: 16px;
+    }
+
+    h1, h2, h3 {
+      margin: 0;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    h1 {
+      font-size: clamp(32px, 4.2vw, 54px);
+      font-weight: 900;
+      max-width: 760px;
+    }
+
+    h2 {
+      font-size: 25px;
+      margin-bottom: 8px;
+    }
+
+    h3 {
+      font-size: 16px;
+      margin-bottom: 8px;
+    }
+
+    .lead {
+      color: #50616d;
+      font-size: 15px;
+      max-width: 760px;
+      margin: 18px 0 22px;
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .hero .metrics {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .metric {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fbfcfc;
+      padding: 14px;
+      min-height: 102px;
+    }
+
+    .metric span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.25;
+      margin-bottom: 10px;
+    }
+
+    .metric strong {
+      display: block;
+      font-size: clamp(24px, 2.2vw, 28px);
+      line-height: 1.1;
+      font-weight: 900;
+      white-space: nowrap;
+      word-break: normal;
+    }
+
+    .metric small {
+      display: block;
+      color: #6f7f89;
+      margin-top: 7px;
+      font-size: 11px;
+    }
+
+    .verdict {
+      background: var(--dark);
+      color: #d9e4e8;
+      padding: 28px 28px 24px;
+      min-height: 100%;
+    }
+
+    .verdict h3 {
+      color: #7af0c3;
+      margin-bottom: 22px;
+    }
+
+    .verdict-item {
+      display: grid;
+      grid-template-columns: 28px 1fr;
+      gap: 12px;
+      margin: 0 0 22px;
+    }
+
+    .verdict b {
+      color: #fff;
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .verdict .num {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: rgba(122,240,195,0.12);
+      color: #7af0c3;
+      font-weight: 800;
+      font-size: 12px;
+    }
+
+    section.panel {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 24px;
+      margin-bottom: 18px;
+      scroll-margin-top: 80px;
+    }
+
+    .section-kicker {
+      color: var(--green);
+      font-weight: 900;
+      font-size: 12px;
+      margin-bottom: 2px;
+    }
+
+    .section-desc {
+      color: var(--muted);
+      margin: 0 0 18px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .subcard {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fff;
+      padding: 16px;
+      min-width: 0;
+    }
+
+    .subcard.tinted {
+      background: #fbfdfc;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: #f0f5f7;
+      color: #40525e;
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .table-wrap {
+      width: 100%;
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fff;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 760px;
+    }
+
+    th, td {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--soft);
+      text-align: left;
+      vertical-align: top;
+      font-size: 13px;
+    }
+
+    th {
+      background: #f4f7f8;
+      color: #334551;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    tr:last-child td { border-bottom: 0; }
+
+    .positive { color: var(--green); font-weight: 900; }
+    .negative { color: var(--red); font-weight: 900; }
+    .neutral { color: var(--blue); font-weight: 900; }
+
+    .chart {
+      width: 100%;
+      height: 280px;
+      display: block;
+    }
+
+    .chart-card {
+      padding: 18px 18px 8px;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 12px;
+      margin: 4px 0 8px;
+    }
+
+    .legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+      background: var(--green);
+    }
+
+    .dot.blue { background: var(--blue); }
+    .dot.amber { background: var(--amber); }
+    .dot.red { background: var(--red); }
+    .dot.teal { background: var(--teal); }
+
+    .style-row {
+      display: grid;
+      grid-template-columns: 170px 1fr;
+      gap: 16px;
+      align-items: stretch;
+      min-height: 156px;
+    }
+
+    .bag-visual {
+      position: relative;
+      overflow: hidden;
+      border-radius: var(--radius);
+      background: linear-gradient(145deg, #effaf6, #f8fbfd);
+      border: 1px solid var(--line);
+      display: grid;
+      place-items: center;
+    }
+
+    .bag {
+      width: 104px;
+      height: 62px;
+      border-radius: 18px 18px 14px 14px;
+      background: linear-gradient(145deg, #151b23, #303b46);
+      position: relative;
+      box-shadow: 0 18px 32px rgba(17,24,32,0.18);
+    }
+
+    .bag:before {
+      content: "";
+      position: absolute;
+      left: 28px;
+      top: -22px;
+      width: 48px;
+      height: 38px;
+      border: 7px solid #25313c;
+      border-bottom: 0;
+      border-radius: 22px 22px 0 0;
+    }
+
+    .bag:after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 28px;
+      border-top: 2px solid rgba(255,255,255,0.25);
+    }
+
+    .bag.green { background: linear-gradient(145deg, #0e8f72, #42b598); }
+    .bag.blue { background: linear-gradient(145deg, #2364d2, #6b93da); }
+    .bag.amber { background: linear-gradient(145deg, #d9972a, #f0c05d); }
+
+    .style-copy p {
+      margin: 0 0 10px;
+      color: var(--muted);
+    }
+
+    .bar-list {
+      display: grid;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .bar-row {
+      display: grid;
+      grid-template-columns: 150px minmax(120px, 1fr) 72px;
+      gap: 12px;
+      align-items: center;
+      color: #40515d;
+      font-size: 13px;
+    }
+
+    .bar-track {
+      height: 12px;
+      background: #edf3f5;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      background: var(--green);
+      border-radius: 999px;
+    }
+
+    .note {
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .footer-note {
+      text-align: center;
+      color: var(--muted);
+      font-size: 12px;
+      padding: 14px 0 4px;
+    }
+
+    @media (max-width: 1060px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      aside {
+        position: relative;
+        top: 0;
+        height: auto;
+      }
+
+      nav {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 4px 8px;
+      }
+
+      .nav-section {
+        grid-column: 1 / -1;
+      }
+
+      .hero {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .topbar {
+        height: auto;
+        align-items: flex-start;
+        flex-direction: column;
+        padding: 14px 16px;
+      }
+
+      .source-pill {
+        justify-content: flex-start;
+      }
+
+      .layout {
+        padding: 12px 12px 34px;
+      }
+
+      .hero-copy,
+      .verdict,
+      section.panel {
+        padding: 18px;
+      }
+
+      .metrics,
+      .grid-2,
+      .grid-3 {
+        grid-template-columns: 1fr;
+      }
+
+      nav {
+        grid-template-columns: 1fr;
+      }
+
+      .style-row {
+        grid-template-columns: 1fr;
+      }
+
+      .bag-visual {
+        min-height: 150px;
+      }
+
+      .bar-row {
+        grid-template-columns: 1fr;
+        gap: 6px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+    <!-- ===== 登录遮罩层 ===== -->
+    <div id="loginOverlay" class="login-overlay hidden">
+        <div class="login-card">
+            <div class="login-title">Duffle Bag 市场调研报告</div>
+            <div class="login-subtitle">请输入账号密码登录</div>
+            <input type="text" id="loginUser" class="login-input" placeholder="用户名" autocomplete="username">
+            <input type="password" id="loginPass" class="login-input" placeholder="密码" autocomplete="current-password">
+            <button id="loginBtn" class="login-btn" onclick="doLogin()">登 录</button>
+            <div id="loginError" class="login-error"></div>
+            <div class="login-footer">Acme Zone 数据看板</div>
+        </div>
+    </div>
+
+    <!-- ===== 侧边栏由 common.js 根据最新权限渲染 ===== -->
+    <div class="sidebar" data-active-page="product"></div>
+
+    <!-- ===== 主内容区 ===== -->
+    <div class="main-container">
+        <header class="top-header">
+            <div class="header-tabs">
+                <div class="tab active">Duffle Bag 市场调研报告<div class="close-icon-placeholder"></div></div>
+            </div>
+            <div class="header-right">
+                <div class="user-avatar-placeholder"></div>
+            </div>
+        </header>
+
+        <main class="content-scrollable">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark">DB</div>
+          <div>
+            <strong>Amazon 美国站 Duffle Bag 市场调研报告</strong>
+            <span>Duffle Bag · 数据基准：2026-05 · SellerSprite MCP</span>
+          </div>
+        </div>
+        <div class="source-pill">
+          <span>数据来源：卖家精灵 MCP</span>
+          <span>市场：Amazon US</span>
+          <span>生成日期：2026-06-25</span>
+        </div>
+      </header>
+
+      <div class="layout">
+        <aside>
+          <div class="nav-title">报告目录</div>
+          <nav>
+            <div class="nav-section">PART 00 判断</div>
+            <a class="active" href="#summary">结论和判断依据</a>
+            <a href="#scope">统计口径来源和报告范围</a>
+            <div class="nav-section">PART 01 市场</div>
+            <a href="#market">duffle bag 市场基本情况调研</a>
+            <div class="nav-section">PART 02 款式</div>
+            <a href="#styles">重点款式总览</a>
+            <div class="nav-section">PART 03 竞品</div>
+            <a href="#bsr">BSR 竞品分析</a>
+          </nav>
+        </aside>
+
+        <main>
+      <section class="hero" id="summary">
+        <div class="hero-copy">
+          <div class="eyebrow">Duffle Bag · US · Market Entry Snapshot</div>
+          <h1>美国站 Duffle Bag 市场分析报告</h1>
+          <p class="lead">
+            Duffle bag 是一个需求稳定、搜索体量较大但竞争成熟的通用包袋品类。2026-05 主关键词月搜索量达到 339,775，
+            同比增长 63%，同时旅行、随身登机、鞋仓和防水等细分词继续提供差异化切入空间。
+          </p>
+          <div class="metrics">
+            <div class="metric">
+              <span>BSR #100总月销售额</span>
+              <strong>$ 735.6万</strong>
+              <small>Travel Duffels 小类</small>
+            </div>
+            <div class="metric">
+              <span>BSR #100总月销售量</span>
+              <strong>270,298pcs</strong>
+              <small>Travel Duffels 小类</small>
+            </div>
+            <div class="metric">
+              <span>ABA 搜索排名</span>
+              <strong>#1,372</strong>
+              <small>2026-05，排名较 2025 年改善</small>
+            </div>
+            <div class="metric">
+              <span>主关键词月搜索量</span>
+              <strong>33.98万</strong>
+              <small>duffle bag · 2026-05</small>
+            </div>
+          </div>
+        </div>
+
+        <div class="verdict">
+          <h3>阶段性判断</h3>
+          <div class="verdict-item">
+            <div class="num">1</div>
+            <div>
+              <b>可进入，但不适合做无差异低价款</b>
+              主词搜索体量大、同比恢复明显；但成熟款供应充分，新品需要围绕场景功能或设计语言建立记忆点。
+            </div>
+          </div>
+          <div class="verdict-item">
+            <div class="num">2</div>
+            <div>
+              <b>优先切入旅行和运动场景</b>
+              travel duffle bag 购买率 13.87%，carry on duffle bag 购买率 6.97%，转化意图明显高于宽泛主词。
+            </div>
+          </div>
+          <div class="verdict-item">
+            <div class="num">3</div>
+            <div>
+              <b>功能差异比单纯容量更重要</b>
+              鞋仓、防水、轻量、可折叠、干湿分离、登机尺寸合规是更容易转化为卖点的产品语言。
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" id="scope">
+        <div class="section-kicker">00 数据口径</div>
+        <h2>统计口径来源和报告范围</h2>
+        <p class="section-desc">本报告参考截图中的“数据口径 + 字段定义”结构，明确数据来源、统计范围和字段用途。</p>
+
+        <div class="grid-3">
+          <div class="subcard tinted">
+            <h3>样本范围</h3>
+            <p>站点：Amazon 美国站。核心对象：duffle bag 及其细分关键词。时间口径：卖家精灵 MCP 可返回的月度趋势，重点读取 2026-05。</p>
+          </div>
+          <div class="subcard tinted">
+            <h3>关键指标</h3>
+            <p>搜索量、购买量、购买率、同比增长、环比增长、ABA 搜索排名、Google Trends 热度、BSR 预估日销和月销。</p>
+          </div>
+          <div class="subcard tinted">
+            <h3>数据来源</h3>
+            <p>主要来源为卖家精灵 MCP：keyword_research_trends、aba_research_trend、google_trend、bsr_prediction。</p>
+          </div>
+        </div>
+
+        <div class="table-wrap" style="margin-top:14px;">
+          <table>
+            <thead>
+              <tr>
+                <th>字段</th>
+                <th>含义</th>
+                <th>数据来源 / 计算口径</th>
+                <th>决策用途</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>月搜索量</td>
+                <td>指定关键词在 Amazon US 的月度搜索需求</td>
+                <td>keyword_research_trends / ABA trend</td>
+                <td>判断需求体量与季节性</td>
+              </tr>
+              <tr>
+                <td>购买率</td>
+                <td>购买量 / 搜索量，对应关键词购买意图强弱</td>
+                <td>keyword_research_trends</td>
+                <td>优先筛选高转化细分场景</td>
+              </tr>
+              <tr>
+                <td>ABA 排名</td>
+                <td>Amazon Brand Analytics 搜索热度排序</td>
+                <td>aba_research_trend</td>
+                <td>判断关键词站内相对热度</td>
+              </tr>
+              <tr>
+                <td>BSR 预估销量</td>
+                <td>给定大类 BSR 排名对应的日销、月销预测</td>
+                <td>bsr_prediction，Sports & Outdoors 节点 3375251</td>
+                <td>估算头部竞品销量门槛</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel" id="market">
+        <div class="section-kicker">Part 01 市场调研</div>
+        <h2>duffle bag 市场基本情况调研</h2>
+        <p class="section-desc">从主关键词搜索趋势、细分词购买意图和外部搜索热度三个角度判断需求质量。</p>
+
+        <div class="metrics" style="margin-bottom:14px;">
+          <div class="metric">
+            <span>2026-05 搜索量</span>
+            <strong>339,775</strong>
+            <small>同比 <b class="positive">+63%</b>，环比 <b class="positive">+23%</b></small>
+          </div>
+          <div class="metric">
+            <span>2026-05 购买量</span>
+            <strong>4,281</strong>
+            <small>主词偏浏览入口，购买率 1.26%</small>
+          </div>
+          <div class="metric">
+            <span>近 12 个月搜索峰值</span>
+            <strong>339,775</strong>
+            <small>2026-05 达到近期高位</small>
+          </div>
+          <div class="metric">
+            <span>Google Trends 高位</span>
+            <strong>94</strong>
+            <small>2026-05，美国地区热度指数</small>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="subcard chart-card">
+            <h3>主关键词搜索量与购买量趋势</h3>
+            <div class="legend">
+              <span><i class="dot"></i>月搜索量</span>
+              <span><i class="dot blue"></i>月购买量</span>
+            </div>
+            <svg class="chart" viewBox="0 0 640 280" role="img" aria-label="duffle bag 近 12 月搜索量与购买量趋势图">
+              <line x1="46" y1="234" x2="610" y2="234" stroke="#dfe7eb"/>
+              <line x1="46" y1="34" x2="46" y2="234" stroke="#dfe7eb"/>
+              <g fill="#edf3f5">
+                <rect x="72" y="105" width="22" height="129" rx="3"/>
+                <rect x="116" y="116" width="22" height="118" rx="3"/>
+                <rect x="160" y="125" width="22" height="109" rx="3"/>
+                <rect x="204" y="132" width="22" height="102" rx="3"/>
+                <rect x="248" y="130" width="22" height="104" rx="3"/>
+                <rect x="292" y="126" width="22" height="108" rx="3"/>
+                <rect x="336" y="132" width="22" height="102" rx="3"/>
+                <rect x="380" y="131" width="22" height="103" rx="3"/>
+                <rect x="424" y="103" width="22" height="131" rx="3"/>
+                <rect x="468" y="106" width="22" height="128" rx="3"/>
+                <rect x="512" y="74" width="22" height="160" rx="3"/>
+                <rect x="556" y="42" width="22" height="192" rx="3"/>
+              </g>
+              <g fill="#0e8f72">
+                <rect x="72" y="105" width="22" height="129" rx="3"/>
+                <rect x="116" y="116" width="22" height="118" rx="3"/>
+                <rect x="160" y="125" width="22" height="109" rx="3"/>
+                <rect x="204" y="132" width="22" height="102" rx="3"/>
+                <rect x="248" y="130" width="22" height="104" rx="3"/>
+                <rect x="292" y="126" width="22" height="108" rx="3"/>
+                <rect x="336" y="132" width="22" height="102" rx="3"/>
+                <rect x="380" y="131" width="22" height="103" rx="3"/>
+                <rect x="424" y="103" width="22" height="131" rx="3"/>
+                <rect x="468" y="106" width="22" height="128" rx="3"/>
+                <rect x="512" y="74" width="22" height="160" rx="3"/>
+                <rect x="556" y="42" width="22" height="192" rx="3"/>
+              </g>
+              <polyline points="83,203 127,198 171,184 215,193 259,183 303,191 347,206 391,189 435,174 479,177 523,166 567,183" fill="none" stroke="#2364d2" stroke-width="3"/>
+              <g fill="#2364d2">
+                <circle cx="83" cy="203" r="4"/><circle cx="127" cy="198" r="4"/><circle cx="171" cy="184" r="4"/>
+                <circle cx="215" cy="193" r="4"/><circle cx="259" cy="183" r="4"/><circle cx="303" cy="191" r="4"/>
+                <circle cx="347" cy="206" r="4"/><circle cx="391" cy="189" r="4"/><circle cx="435" cy="174" r="4"/>
+                <circle cx="479" cy="177" r="4"/><circle cx="523" cy="166" r="4"/><circle cx="567" cy="183" r="4"/>
+              </g>
+              <g fill="#60707d" font-size="11">
+                <text x="64" y="254">2025-06</text><text x="194" y="254">09</text><text x="326" y="254">12</text><text x="454" y="254">2026-03</text><text x="546" y="254">05</text>
+                <text x="8" y="238">0</text><text x="8" y="142">17万</text><text x="8" y="48">34万</text>
+              </g>
+            </svg>
+          </div>
+
+          <div class="subcard chart-card">
+            <h3>细分关键词需求质量对比</h3>
+            <p class="section-desc" style="margin-bottom:10px;">2026-05 数据，气泡大小参考购买量。</p>
+            <svg class="chart" viewBox="0 0 640 280" role="img" aria-label="细分词搜索量和购买率散点图">
+              <line x1="58" y1="230" x2="606" y2="230" stroke="#dfe7eb"/>
+              <line x1="58" y1="32" x2="58" y2="230" stroke="#dfe7eb"/>
+              <g stroke="#edf3f5">
+                <line x1="58" y1="178" x2="606" y2="178"/><line x1="58" y1="126" x2="606" y2="126"/><line x1="58" y1="74" x2="606" y2="74"/>
+              </g>
+              <g font-size="12" fill="#60707d">
+                <text x="22" y="234">0%</text><text x="18" y="182">5%</text><text x="14" y="130">10%</text><text x="14" y="78">15%</text>
+                <text x="52" y="255">0</text><text x="244" y="255">1万</text><text x="438" y="255">2万</text><text x="570" y="255">3万+</text>
+              </g>
+              <g>
+                <circle cx="558" cy="214" r="18" fill="#0e8f72" opacity=".88"/><text x="490" y="205" fill="#121821" font-size="12">gym duffle bag</text>
+                <circle cx="340" cy="52" r="30" fill="#2364d2" opacity=".86"/><text x="252" y="44" fill="#121821" font-size="12">travel duffle bag</text>
+                <circle cx="158" cy="142" r="15" fill="#159c9c" opacity=".86"/><text x="104" y="132" fill="#121821" font-size="12">carry on</text>
+                <circle cx="172" cy="214" r="10" fill="#d9972a" opacity=".88"/><text x="128" y="204" fill="#121821" font-size="12">waterproof</text>
+                <circle cx="138" cy="178" r="13" fill="#d94a4a" opacity=".84"/><text x="70" y="168" fill="#121821" font-size="12">shoe compartment</text>
+              </g>
+            </svg>
+          </div>
+        </div>
+
+        <div class="table-wrap" style="margin-top:14px;">
+          <table>
+            <thead>
+              <tr>
+                <th>关键词</th>
+                <th>月搜索量</th>
+                <th>月购买量</th>
+                <th>购买率</th>
+                <th>同比</th>
+                <th>判断</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>duffle bag</td>
+                <td>339,775</td>
+                <td>4,281</td>
+                <td>1.26%</td>
+                <td class="positive">+63%</td>
+                <td>大流量入口，适合承接泛需求和广告扩量。</td>
+              </tr>
+              <tr>
+                <td>travel duffle bag</td>
+                <td>16,038</td>
+                <td>2,224</td>
+                <td class="positive">13.87%</td>
+                <td class="positive">+33%</td>
+                <td>购买意图最强，建议作为主推场景。</td>
+              </tr>
+              <tr>
+                <td>gym duffle bag</td>
+                <td>31,183</td>
+                <td>470</td>
+                <td>1.51%</td>
+                <td class="positive">+85%</td>
+                <td>搜索量较高，但需通过鞋仓、湿袋、轻量提升转化。</td>
+              </tr>
+              <tr>
+                <td>carry on duffle bag</td>
+                <td>5,961</td>
+                <td>415</td>
+                <td class="positive">6.97%</td>
+                <td class="positive">+86%</td>
+                <td>登机尺寸合规是清晰卖点，可与旅行款组合。</td>
+              </tr>
+              <tr>
+                <td>waterproof duffle bag</td>
+                <td>6,818</td>
+                <td>59</td>
+                <td>0.88%</td>
+                <td class="positive">+43%</td>
+                <td>需求有增长，但购买意图偏弱，更适合做辅助卖点。</td>
+              </tr>
+              <tr>
+                <td>duffle bag with shoe compartment</td>
+                <td>5,046</td>
+                <td>169</td>
+                <td>3.35%</td>
+                <td class="positive">+35%</td>
+                <td>功能表达直接，适合健身和短途旅行场景。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel" id="styles">
+        <div class="section-kicker">Part 02 产品分析</div>
+        <h2>重点款式总览</h2>
+        <p class="section-desc">结合关键词购买率、用户场景和竞品常见卖点，优先梳理 3 类可执行款式。</p>
+
+        <div class="grid-3">
+          <div class="subcard">
+            <div class="style-row" style="grid-template-columns: 1fr;">
+              <div class="bag-visual"><div class="bag green"></div></div>
+              <div class="style-copy">
+                <span class="badge">主推款 · Travel</span>
+                <h3>旅行 / Weekender 款</h3>
+                <p>围绕 travel duffle bag 的高购买率建立主款：轻量、防泼水、行李箱固定带、电脑夹层、独立湿袋。</p>
+                <p><b>建议价格带：</b>$24.99-$39.99</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="subcard">
+            <div class="style-row" style="grid-template-columns: 1fr;">
+              <div class="bag-visual"><div class="bag blue"></div></div>
+              <div class="style-copy">
+                <span class="badge">功能款 · Gym</span>
+                <h3>健身 / 鞋仓款</h3>
+                <p>服务 gym duffle bag 和 shoe compartment 组合词：通风鞋仓、干湿分离、可水洗内衬、肩带减压。</p>
+                <p><b>建议价格带：</b>$19.99-$32.99</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="subcard">
+            <div class="style-row" style="grid-template-columns: 1fr;">
+              <div class="bag-visual"><div class="bag amber"></div></div>
+              <div class="style-copy">
+                <span class="badge">差异款 · Carry-on</span>
+                <h3>随身登机款</h3>
+                <p>围绕 carry on duffle bag 的强增长做尺寸合规表达：可放座椅下、可折叠、轻量、容量标尺清晰。</p>
+                <p><b>建议价格带：</b>$18.99-$29.99</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-2" style="margin-top:14px;">
+          <div class="subcard">
+            <h3>款式优先级</h3>
+            <div class="bar-list">
+              <div class="bar-row">
+                <span>旅行 Weekender</span>
+                <div class="bar-track"><div class="bar-fill" style="width:92%"></div></div>
+                <b>92</b>
+              </div>
+              <div class="bar-row">
+                <span>健身鞋仓</span>
+                <div class="bar-track"><div class="bar-fill" style="width:78%; background:var(--blue)"></div></div>
+                <b>78</b>
+              </div>
+              <div class="bar-row">
+                <span>随身登机</span>
+                <div class="bar-track"><div class="bar-fill" style="width:74%; background:var(--teal)"></div></div>
+                <b>74</b>
+              </div>
+              <div class="bar-row">
+                <span>防水户外</span>
+                <div class="bar-track"><div class="bar-fill" style="width:58%; background:var(--amber)"></div></div>
+                <b>58</b>
+              </div>
+            </div>
+          </div>
+          <div class="subcard">
+            <h3>Listing 表达建议</h3>
+            <div class="table-wrap">
+              <table style="min-width:520px;">
+                <thead>
+                  <tr><th>模块</th><th>建议表达</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>标题</td><td>Travel Duffel Bag / Weekender / Carry On / Shoe Compartment 组合布局。</td></tr>
+                  <tr><td>主图</td><td>必须体现容量、鞋仓、登机尺寸或湿袋，避免只展示普通包型。</td></tr>
+                  <tr><td>卖点</td><td>用场景语言解释功能，例如 gym、weekend trip、overnight、hospital bag。</td></tr>
+                  <tr><td>A+ 页面</td><td>用尺寸图、内部结构图、收纳前后对比图降低购买不确定性。</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" id="bsr">
+        <div class="section-kicker">Part 03 竞品与销量门槛</div>
+        <h2>BSR 竞品分析</h2>
+        <p class="section-desc">使用卖家精灵 BSR prediction 对 Sports & Outdoors 大类进行销量门槛估算，用于判断头部竞品体量。</p>
+
+        <div class="grid-2">
+          <div class="subcard chart-card">
+            <h3>BSR 排名与预估月销</h3>
+            <div class="legend">
+              <span><i class="dot"></i>Sports & Outdoors 大类月销估算</span>
+            </div>
+            <svg class="chart" viewBox="0 0 640 280" role="img" aria-label="BSR 排名与预估月销柱状图">
+              <line x1="58" y1="232" x2="600" y2="232" stroke="#dfe7eb"/>
+              <line x1="58" y1="36" x2="58" y2="232" stroke="#dfe7eb"/>
+              <g fill="#0e8f72">
+                <rect x="94" y="55" width="70" height="177" rx="5"/>
+                <rect x="220" y="138" width="70" height="94" rx="5" opacity=".84"/>
+                <rect x="346" y="185" width="70" height="47" rx="5" opacity=".7"/>
+                <rect x="472" y="204" width="70" height="28" rx="5" opacity=".58"/>
+              </g>
+              <g fill="#121821" font-size="14" font-weight="700">
+                <text x="100" y="44">24,447</text>
+                <text x="226" y="126">12,995</text>
+                <text x="352" y="174">5,870</text>
+                <text x="478" y="193">3,534</text>
+              </g>
+              <g fill="#60707d" font-size="12">
+                <text x="94" y="255">BSR #100</text>
+                <text x="220" y="255">BSR #300</text>
+                <text x="346" y="255">BSR #1000</text>
+                <text x="472" y="255">BSR #2000</text>
+                <text x="14" y="236">0</text><text x="8" y="144">12k</text><text x="8" y="58">24k</text>
+              </g>
+            </svg>
+          </div>
+
+          <div class="subcard">
+            <h3>竞品进入门槛判断</h3>
+            <div class="table-wrap">
+              <table style="min-width:560px;">
+                <thead>
+                  <tr>
+                    <th>排名层级</th>
+                    <th>预估日销</th>
+                    <th>预估月销</th>
+                    <th>运营含义</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>BSR #100</td>
+                    <td>815</td>
+                    <td>24,447</td>
+                    <td>头部爆款层级，广告和评价壁垒较高。</td>
+                  </tr>
+                  <tr>
+                    <td>BSR #300</td>
+                    <td>433</td>
+                    <td>12,995</td>
+                    <td>强势竞品层级，新品需要明确差异和预算。</td>
+                  </tr>
+                  <tr>
+                    <td>BSR #1000</td>
+                    <td>196</td>
+                    <td>5,870</td>
+                    <td>可作为新品 3-6 个月冲刺目标。</td>
+                  </tr>
+                  <tr>
+                    <td>BSR #2000</td>
+                    <td>118</td>
+                    <td>3,534</td>
+                    <td>可作为验证期销量目标和广告效率基线。</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-2" style="margin-top:14px;">
+          <div class="subcard">
+            <h3>机会点</h3>
+            <div class="table-wrap">
+              <table style="min-width:560px;">
+                <thead>
+                  <tr><th>方向</th><th>依据</th><th>动作</th></tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>旅行高转化</td>
+                    <td>travel duffle bag 购买率 13.87%</td>
+                    <td>主图突出 weekender、overnight、carry-on 容量。</td>
+                  </tr>
+                  <tr>
+                    <td>登机增长</td>
+                    <td>carry on duffle bag 同比 +86%、环比 +76%</td>
+                    <td>尺寸、座椅下放置、行李箱固定带写进核心卖点。</td>
+                  </tr>
+                  <tr>
+                    <td>运动功能</td>
+                    <td>gym duffle bag 月搜索 31,183</td>
+                    <td>用鞋仓、湿袋、耐脏内衬、肩带舒适度做差异。</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="subcard">
+            <h3>风险点</h3>
+            <div class="table-wrap">
+              <table style="min-width:560px;">
+                <thead>
+                  <tr><th>风险</th><th>表现</th><th>应对</th></tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>宽泛主词转化低</td>
+                    <td>duffle bag 购买率 1.26%</td>
+                    <td>广告不要只堆主词，应以高意图长尾词分组。</td>
+                  </tr>
+                  <tr>
+                    <td>同质化严重</td>
+                    <td>低价、黑灰基础款过多</td>
+                    <td>差异化结构和真实场景图比单纯颜色更关键。</td>
+                  </tr>
+                  <tr>
+                    <td>防水词转化弱</td>
+                    <td>waterproof 购买率 0.88%</td>
+                    <td>防水更适合做辅助功能，不建议单独作为主定位。</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <p class="note">
+          结论：建议以“旅行 Weekender + 随身登机 + 鞋仓/干湿分离”的组合定位切入，首批产品不要追求全场景覆盖，
+          而应围绕一个强场景做高确定性的主图、标题、卖点和广告词包。
+        </p>
+      </section>
+
+      <div class="footer-note">SellerSprite MCP / Amazon US / Duffle Bag Category Research / 2026-06-25</div>
+        </main>
+      </div>
+        </main>
+    </div>
+
+    <script src="js/common.js"></script>
+    <script>
+        initPublicPage({ activeKey: 'product', redirectAnonymous: true });
+    </script>
+</body>
+</html>
