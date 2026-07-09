@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>历史销量查询 - 控制面板</title>
+    <link rel="stylesheet" href="css/dashboard.css">
+    <style>
+        .history-query-page .content-scrollable {
+            padding-top: 4px;
+        }
+
+        .history-query-workspace {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 0;
+        }
+
+        .history-query-search-panel {
+            width: min(520px, 100%);
+            margin-top: 18vh;
+            display: flex;
+            justify-content: center;
+        }
+
+        .history-query-search-panel.has-result {
+            margin-top: 18px;
+            margin-bottom: 14px;
+        }
+
+        .history-query-search-panel .search-group {
+            width: 100%;
+            height: 32px;
+        }
+
+        .history-query-search-panel .search-label {
+            width: 90px;
+            padding: 0 10px;
+            border-right: 1px solid #e5e6eb;
+            line-height: 30px;
+            text-align: center;
+            color: #4e5969;
+            box-sizing: border-box;
+            flex-shrink: 0;
+        }
+
+        .history-query-search-panel input {
+            flex: 1;
+            min-width: 0;
+            padding: 0 10px;
+            border: none;
+            line-height: 30px;
+            font-size: 12px;
+            color: #1d2129;
+        }
+
+        .history-query-search-panel input:focus {
+            outline: none;
+        }
+
+        .history-query-results {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .history-query-results.hidden {
+            display: none;
+        }
+
+        .history-query-summary {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 8px;
+        }
+
+        .history-query-summary-item {
+            background: #fff;
+            border: 1px solid #e5e6eb;
+            border-radius: 2px;
+            padding: 10px 12px;
+            min-width: 0;
+        }
+
+        .history-query-summary-item span {
+            display: block;
+            margin-bottom: 6px;
+            color: #86909c;
+            font-size: 12px;
+        }
+
+        .history-query-summary-item strong {
+            display: block;
+            color: #1d2129;
+            font-size: 13px;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .history-query-table-block {
+            background: #fff;
+            border: 1px solid #e5e6eb;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .history-query-table-block.hidden {
+            display: none;
+        }
+
+        .history-query-table-title {
+            padding: 10px 12px;
+            border-bottom: 1px solid #e5e6eb;
+            color: #1d2129;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .history-query-table-wrap {
+            overflow-x: auto;
+        }
+
+        .history-query-table {
+            min-width: 920px;
+        }
+
+        .history-query-table th,
+        .history-query-table td {
+            text-align: right;
+            white-space: nowrap;
+        }
+
+        .history-query-table th:first-child,
+        .history-query-table td:first-child {
+            text-align: left;
+            width: 90px;
+            min-width: 90px;
+        }
+
+        .history-query-message {
+            width: min(520px, 100%);
+            margin-top: 12px;
+            padding: 10px 12px;
+            color: #86909c;
+            font-size: 12px;
+            text-align: center;
+            background: #fff;
+            border: 1px solid #e5e6eb;
+            border-radius: 2px;
+        }
+
+        .history-query-message.hidden {
+            display: none;
+        }
+
+        @media (max-width: 760px) {
+            .history-query-search-panel {
+                margin-top: 12vh;
+            }
+
+            .history-query-summary {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body class="history-query-page">
+
+    <!-- ===== 登录遮罩层 ===== -->
+    <div id="loginOverlay" class="login-overlay hidden">
+        <div class="login-card">
+            <div class="login-title">历史销量查询</div>
+            <div class="login-subtitle">请输入账号密码登录</div>
+            <input type="text" id="loginUser" class="login-input" placeholder="用户名" autocomplete="username">
+            <input type="password" id="loginPass" class="login-input" placeholder="密码" autocomplete="current-password">
+            <button id="loginBtn" class="login-btn" onclick="doLogin()">登 录</button>
+            <div id="loginError" class="login-error"></div>
+            <div class="login-footer">Acme Zone 数据看板</div>
+        </div>
+    </div>
+
+    <!-- ===== 侧边栏由 common.js 根据最新权限渲染 ===== -->
+    <div class="sidebar" data-active-page="history"></div>
+
+    <!-- ===== 主内容区 ===== -->
+    <div class="main-container">
+        <header class="top-header">
+            <div class="header-tabs">
+                <a class="tab" href="history.html">历史销量数据<div class="close-icon-placeholder"></div></a>
+                <div class="tab active">历史销量查询<div class="close-icon-placeholder"></div></div>
+            </div>
+            <div class="header-right">
+                <div class="user-avatar-placeholder"></div>
+            </div>
+        </header>
+
+        <main class="content-scrollable">
+            <div class="page-title-row">
+                <div class="title-group">
+                    <h2>历史销量查询<div style="width:16px;height:16px;background:#165dff;border-radius: 2px;display: inline-block;vertical-align: middle;"></div></h2>
+                    <div class="update-time" style="margin-left: 60px;">更新时间
+                        <span id="target-time"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="history-query-workspace">
+                <div id="querySearchPanel" class="history-query-search-panel">
+                    <div class="search-group">
+                        <div class="search-label">搜索</div>
+                        <input type="text" id="queryInput" placeholder="输入父ASIN或子ASIN" oninput="handleHistoryQuery(event)" autocomplete="off">
+                    </div>
+                </div>
+
+                <div id="queryMessage" class="history-query-message hidden"></div>
+
+                <section id="queryResults" class="history-query-results hidden">
+                    <div class="history-query-summary">
+                        <div class="history-query-summary-item">
+                            <span>子ASIN</span>
+                            <strong id="summaryChildAsin">-</strong>
+                        </div>
+                        <div class="history-query-summary-item">
+                            <span>父ASIN</span>
+                            <strong id="summaryParentAsin">-</strong>
+                        </div>
+                        <div class="history-query-summary-item">
+                            <span>品名</span>
+                            <strong id="summaryProductName">-</strong>
+                        </div>
+                    </div>
+
+                    <div id="childTableBlock" class="history-query-table-block hidden">
+                        <div class="history-query-table-title">子ASIN历史销量</div>
+                        <div class="history-query-table-wrap">
+                            <table class="history-query-table">
+                                <thead id="childTableHead"></thead>
+                                <tbody id="childTableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div id="parentTableBlock" class="history-query-table-block hidden">
+                        <div class="history-query-table-title">父ASIN历史销量</div>
+                        <div class="history-query-table-wrap">
+                            <table class="history-query-table">
+                                <thead id="parentTableHead"></thead>
+                                <tbody id="parentTableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- ===== 脚本加载 ===== -->
+    <script src="js/common.js"></script>
+    <script src="js/history_sales_query.js"></script>
+    <script>
+        window.addEventListener('load', startTimeDisplay);
+    </script>
+</body>
+</html>

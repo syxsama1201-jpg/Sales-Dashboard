@@ -13,7 +13,8 @@ const PAGE_ACCESS_MAP = {
     'inventory_value.html': 'value',
     'vc_replenishment_model.html': 'replenishment',
     'shipment_audit.html': 'replenishment',
-    'history.html': 'history'
+    'history.html': 'history',
+    'history_sales_query.html': 'history'
 };
 const NAV_ITEMS = [
     { key: 'home', label: '首页', href: FRONT_PAGE, tag: null },
