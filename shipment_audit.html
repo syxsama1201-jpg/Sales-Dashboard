@@ -279,6 +279,20 @@ body {
 .ship-table tbody tr.warn-high td { background: #fffaf1; }
 .ship-table tbody tr.changed td { box-shadow: inset 3px 0 0 rgba(124,111,247,.45); }
 
+/* 删除按钮单独收紧尺寸，避免操作列在宽表中挤占业务字段的可视空间。 */
+.ship-row-delete-btn {
+    height: 26px;
+    padding: 0 9px;
+    border: 1px solid rgba(232,85,85,.35);
+    background: #fff;
+    color: #d94545;
+    border-radius: 2px;
+    cursor: pointer;
+    font: inherit;
+    white-space: nowrap;
+}
+.ship-row-delete-btn:hover { background: rgba(232,85,85,.08); border-color: #d94545; }
+
 .ship-table td.product-name { max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
 .ship-edit {
     width: 92px;
@@ -917,7 +931,7 @@ function renderHeader(type) {
         const calcClass = CALC_COLS.has(col) ? " calc-head" : "";
         const letter = colToLetter(col + 1);
         return `<th class="${editClass}${calcClass}">${letter} ${escapeHtml(title)}</th>`;
-    }).join("") + `<th>状态</th>`;
+    }).join("") + `<th>状态</th><th>操作</th>`;
 }
 
 function hydrateWarehouseFilters(type) {
@@ -981,10 +995,10 @@ function renderBody(type) {
     const rows = getFilteredRows(type);
 
     if (!store[type].rows.length) {
-        return `<tr><td colspan="20"><div class="ship-empty">请上传${WAREHOUSES[type].label} Excel。这里目前是空港，风声比数据多。</div></td></tr>`;
+        return `<tr><td colspan="21"><div class="ship-empty">请上传${WAREHOUSES[type].label} Excel。这里目前是空港，风声比数据多。</div></td></tr>`;
     }
     if (!rows.length) {
-        return `<tr><td colspan="20"><div class="ship-empty">没有匹配数据。筛选器的小网兜有点严格。</div></td></tr>`;
+        return `<tr><td colspan="21"><div class="ship-empty">没有匹配数据。筛选器的小网兜有点严格。</div></td></tr>`;
     }
     return rows.map(row => renderRow(row)).join("");
 }
@@ -998,7 +1012,7 @@ function renderRow(row) {
     ].filter(Boolean).join(" ");
 
     const tds = DISPLAY_COLS.map(col => renderCell(row, col)).join("");
-    return `<tr class="${cls}">${tds}<td>${getStatusTag(row)}</td></tr>`;
+    return `<tr class="${cls}">${tds}<td>${getStatusTag(row)}</td><td><button type="button" class="ship-row-delete-btn" onclick="removeImportedRow('${row.type}', '${row.id}')">删除</button></td></tr>`;
 }
 
 function renderCell(row, col) {
@@ -1050,6 +1064,29 @@ function updateEditable(type, rowId, col, value) {
     recalcRow(row);
     updateGlobalMetrics();
     renderWarehouse(type);
+    const draftEl = document.getElementById(type + "DraftStatus");
+    if (draftEl) draftEl.textContent = "有未保存修改";
+}
+
+function removeImportedRow(type, rowId) {
+    const dataset = store[type];
+    if (!dataset) return;
+
+    const rowIndex = dataset.rows.findIndex(row => row.id === rowId);
+    if (rowIndex < 0) return;
+
+    /*
+     * 只从当前仓库的数据源移除目标行。保留其余行的 index 不重新编号，
+     * 这样后续保存的审核记录仍能对应到原 Excel 的行号，便于回溯来源。
+     */
+    dataset.rows.splice(rowIndex, 1);
+    dataset.version = new Date().toISOString();
+
+    // 表格、导入状态和顶部汇总都直接依赖 store，因此删除后必须同步刷新。
+    renderWarehouse(type);
+    updateStatus(type);
+    updateGlobalMetrics();
+
     const draftEl = document.getElementById(type + "DraftStatus");
     if (draftEl) draftEl.textContent = "有未保存修改";
 }
