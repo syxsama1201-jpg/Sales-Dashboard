@@ -240,7 +240,7 @@ body {
     overflow-y: hidden;
     max-height: none;
 }
-.ship-table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 1760px; }
+.ship-table { width: max-content; border-collapse: collapse; font-size: 12px; min-width: 1760px; table-layout: fixed; }
 
 .ship-table thead th {
     position: sticky;
@@ -258,6 +258,30 @@ body {
     white-space: nowrap;
     box-shadow: 0 1px 0 var(--ship-line);
 }
+
+/* 表头作为列宽拖拽把手的定位容器，拖拽仅改变对应 col 的宽度，不会影响单元格数据。 */
+.ship-column-resizer {
+    position: absolute;
+    top: 0;
+    right: -4px;
+    width: 8px;
+    height: 100%;
+    cursor: col-resize;
+    touch-action: none;
+    z-index: 4;
+}
+.ship-column-resizer::after {
+    content: "";
+    position: absolute;
+    top: 7px;
+    bottom: 7px;
+    left: 3px;
+    width: 1px;
+    background: transparent;
+}
+.ship-column-resizer:hover::after,
+body.ship-column-resizing .ship-column-resizer::after { background: var(--ship-purple); }
+body.ship-column-resizing { cursor: col-resize; user-select: none; }
 
 /* editable-head 不再使用半透明底色，避免 sticky 表头下拉时出现重叠透显。 */
 .ship-table thead th.editable-head {
@@ -306,7 +330,8 @@ body {
     outline: none;
     font-family: inherit;
 }
-.ship-edit.remark { width: 170px; text-align: left; }
+/* 备注列允许用户拖拽调宽，输入框需随所在单元格伸缩而非保持固定 170px。 */
+.ship-edit.remark { width: 100%; box-sizing: border-box; text-align: left; }
 .ship-edit:focus { border-color: var(--ship-purple); box-shadow: 0 0 0 2px rgba(124,111,247,.08); }
 .ship-num { text-align: right; font-variant-numeric: tabular-nums; }
 .ship-empty { padding: 44px 20px; text-align: center; color: var(--ship-muted); font-size: 12px; }
@@ -404,10 +429,11 @@ body {
 }
 
 .ship-history-table {
-    width: 100%;
+    width: max-content;
     border-collapse: collapse;
     font-size: 11px;
     min-width: 680px;
+    table-layout: auto;
 }
 
 .ship-history-table th,
@@ -417,6 +443,7 @@ body {
     border: 1px solid var(--ship-line);
     text-align: right;
     background: #fff;
+    white-space: nowrap;
 }
 
 .ship-history-table th {
@@ -427,6 +454,7 @@ body {
 
 .ship-history-table th:first-child,
 .ship-history-table td:first-child {
+    min-width: 100px;
     text-align: center;
     font-weight: 700;
     color: var(--ship-text);
@@ -608,6 +636,41 @@ const DISPLAY_COLS = [
     0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
     16, 17, 18, 19, 20, 21
 ];
+const TABLE_COLUMN_KEYS = DISPLAY_COLS.map(col => `data-${col}`).concat(["status", "action"]);
+const COLUMN_MIN_WIDTH = 72;
+const COLUMN_MAX_WIDTH = 1200;
+const COLUMN_WIDTH_STORAGE_PREFIX = "shipment_audit_column_widths_v1";
+const COLUMN_DEFAULT_WIDTHS = {
+    "data-0": 132,
+    "data-1": 132,
+    "data-2": 112,
+    "data-3": 220,
+    "data-4": 86,
+    "data-5": 92,
+    "data-6": 92,
+    "data-7": 102,
+    "data-8": 102,
+    "data-9": 92,
+    "data-10": 102,
+    "data-11": 92,
+    "data-12": 180,
+    "data-16": 106,
+    "data-17": 92,
+    "data-18": 92,
+    "data-19": 92,
+    "data-20": 92,
+    "data-21": 92,
+    status: 76,
+    action: 72
+};
+/*
+ * renderWarehouse 会在筛选、编辑或删除后重建整张表。
+ * 宽度状态按仓库保存在内存中，才能避免重建 DOM 后用户刚拖拽的宽度丢失。
+ */
+const columnWidthState = {
+    supplier: {},
+    overseas: {}
+};
 const DISPLAY_SOURCE_COLS = {
     21: 14
 };
@@ -907,7 +970,8 @@ function renderWarehouse(type) {
                 <button class="ship-btn ${wh.color}" onclick="triggerUpload('${type}')">重新上传</button>
             </div>
             <div class="ship-table-wrap">
-                <table class="ship-table">
+                <table class="ship-table" data-table-type="${type}">
+                    ${renderColumnGroup(type)}
                     <thead><tr>${renderHeader(type)}</tr></thead>
                     <tbody id="${type}Tbody">${renderBody(type)}</tbody>
                 </table>
@@ -930,8 +994,115 @@ function renderHeader(type) {
         const editClass = EDITABLE_COLS.has(col) ? " editable-head" : "";
         const calcClass = CALC_COLS.has(col) ? " calc-head" : "";
         const letter = colToLetter(col + 1);
-        return `<th class="${editClass}${calcClass}">${letter} ${escapeHtml(title)}</th>`;
-    }).join("") + `<th>状态</th><th>操作</th>`;
+        return `<th class="${editClass}${calcClass}">${letter} ${escapeHtml(title)}${renderColumnResizer(type, `data-${col}`)}</th>`;
+    }).join("") + `<th>状态${renderColumnResizer(type, "status")}</th><th>操作${renderColumnResizer(type, "action")}</th>`;
+}
+
+function renderColumnGroup(type) {
+    return `<colgroup>${TABLE_COLUMN_KEYS.map(key =>
+        `<col data-column-key="${key}" style="width:${getColumnWidth(type, key)}px">`
+    ).join("")}</colgroup>`;
+}
+
+function renderColumnResizer(type, key) {
+    return `<span class="ship-column-resizer" data-table-type="${type}" data-column-key="${key}" onpointerdown="startColumnResize(event, this)" title="拖动调整列宽"></span>`;
+}
+
+function getColumnWidth(type, key) {
+    const savedWidth = Number(columnWidthState[type]?.[key]);
+    const defaultWidth = COLUMN_DEFAULT_WIDTHS[key] || COLUMN_MIN_WIDTH;
+    return Math.min(COLUMN_MAX_WIDTH, Math.max(COLUMN_MIN_WIDTH, Number.isFinite(savedWidth) ? savedWidth : defaultWidth));
+}
+
+function getColumnWidthStorageKey() {
+    /*
+     * 本地缓存按已登录用户名隔离，避免同一浏览器切换账号后直接继承前一用户的列宽。
+     * 无法取得登录态时使用匿名键，保证离线或登录前的拖拽仍可恢复。
+     */
+    let user = "anonymous";
+    try {
+        if (typeof getStoredAuth === "function") user = getStoredAuth()?.user || user;
+    } catch (e) {}
+    return `${COLUMN_WIDTH_STORAGE_PREFIX}:${encodeURIComponent(String(user))}`;
+}
+
+function restoreColumnWidthsFromLocalCache() {
+    try {
+        const raw = localStorage.getItem(getColumnWidthStorageKey());
+        if (!raw) return;
+
+        const saved = JSON.parse(raw);
+        const savedWidths = saved?.widths;
+        if (!savedWidths || typeof savedWidths !== "object") return;
+
+        Object.keys(columnWidthState).forEach(type => {
+            const widths = savedWidths[type];
+            if (!widths || typeof widths !== "object") return;
+
+            TABLE_COLUMN_KEYS.forEach(key => {
+                const width = Number(widths[key]);
+                if (!Number.isFinite(width)) return;
+                columnWidthState[type][key] = Math.min(COLUMN_MAX_WIDTH, Math.max(COLUMN_MIN_WIDTH, Math.round(width)));
+            });
+        });
+    } catch (e) {
+        // 本地缓存损坏或浏览器禁用存储时保留默认宽度，不阻断审核页面正常使用。
+    }
+}
+
+function saveColumnWidthsToLocalCache() {
+    try {
+        const widths = {};
+        Object.keys(columnWidthState).forEach(type => {
+            widths[type] = {};
+            TABLE_COLUMN_KEYS.forEach(key => {
+                const width = Number(columnWidthState[type][key]);
+                if (Number.isFinite(width)) widths[type][key] = width;
+            });
+        });
+
+        localStorage.setItem(getColumnWidthStorageKey(), JSON.stringify({ version: 1, widths }));
+    } catch (e) {
+        // 存储空间不足或隐私模式限制时，列宽仍在当前页面会话内有效。
+    }
+}
+
+function startColumnResize(event, handle) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const type = handle.dataset.tableType;
+    const key = handle.dataset.columnKey;
+    const table = handle.closest(".ship-table");
+    const column = table?.querySelector(`col[data-column-key="${key}"]`);
+    if (!column || !columnWidthState[type]) return;
+
+    const startX = event.clientX;
+    const startWidth = column.getBoundingClientRect().width;
+    document.body.classList.add("ship-column-resizing");
+
+    const finishResize = () => {
+        document.removeEventListener("pointermove", moveResize);
+        document.removeEventListener("pointerup", finishResize);
+        document.removeEventListener("pointercancel", finishResize);
+        document.body.classList.remove("ship-column-resizing");
+        // 只在用户松开拖拽把手后落盘，避免 pointermove 期间持续写入本地缓存。
+        saveColumnWidthsToLocalCache();
+    };
+
+    const moveResize = moveEvent => {
+        const nextWidth = Math.max(COLUMN_MIN_WIDTH, Math.round(startWidth + moveEvent.clientX - startX));
+        /*
+         * 先更新当前 col，让拖拽过程无需重绘整表；再写入状态，
+         * 以便后续筛选、编辑或删除导致的 renderWarehouse 重建仍沿用该宽度。
+         */
+        column.style.width = `${nextWidth}px`;
+        columnWidthState[type][key] = nextWidth;
+    };
+
+    document.addEventListener("pointermove", moveResize);
+    document.addEventListener("pointerup", finishResize);
+    document.addEventListener("pointercancel", finishResize);
 }
 
 function hydrateWarehouseFilters(type) {
@@ -1757,6 +1928,7 @@ document.addEventListener("click", function(event) {
     hideAsinHistory();
 });
 
+restoreColumnWidthsFromLocalCache();
 renderWarehouse("supplier");
 renderWarehouse("overseas");
 updateGlobalMetrics();
