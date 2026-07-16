@@ -4,6 +4,7 @@ import hashlib
 import base64
 import time
 import json
+import math
 import os
 import sqlite3
 import sys
@@ -56,13 +57,49 @@ HISTORY_TABLE_ID = config["HISTORY_TABLE_ID"]
 # 默认写在当前工作目录，可用环境变量 SHIPMENT_DB_PATH 指定绝对路径
 SHIPMENT_DB_PATH = os.environ.get("SHIPMENT_DB_PATH", "./shipment_current.db")
 
+# 单款财务利润数据库
+# 财务报表需要按月份长期保留，不能像发货审核那样只覆盖一条 JSON。
+# 独立数据库既避免与现有业务表耦合，也便于服务器单独设置备份路径。
+FINANCE_DB_PATH = os.environ.get("FINANCE_DB_PATH", "./finance_profit.db")
+
+# Excel 第二行的表头是导入契约。前端会先校验一次，后端仍需再次校验，
+# 因为不能把浏览器提交的数据默认视为可信。
+FINANCE_FIELD_DEFINITIONS = (
+    ("父ASIN", "parent_asin", "text"),
+    ("品名", "product_name", "text"),
+    ("销售额$", "sales_amount", "number"),
+    ("销量", "sales_quantity", "number"),
+    ("客单价$", "unit_price", "number"),
+    ("FBA fee", "fba_fee_per_unit", "number"),
+    ("利润额$", "profit_amount", "number"),
+    ("利润率", "profit_margin", "ratio"),
+    ("退货率", "return_rate", "ratio"),
+    ("广告占比", "ad_ratio", "ratio"),
+    ("折扣活动占比", "promotion_ratio", "ratio"),
+    ("采购成本占比", "purchase_cost_ratio", "ratio"),
+    ("物流成本占比", "logistics_cost_ratio", "ratio"),
+    ("FBA fee 占比", "fba_fee_ratio", "ratio"),
+    ("退货金额$", "return_amount", "number"),
+    ("亚马逊扣费后金额$", "amazon_net_amount", "number"),
+    ("仓储费占比", "storage_fee_ratio", "ratio"),
+    ("广告费$", "ad_spend", "number"),
+    ("折扣活动金额$", "promotion_amount", "number"),
+    ("采购成本 $", "purchase_cost", "number"),
+    ("物流成本$", "logistics_cost", "number"),
+    ("FBA fee$", "fba_fee_amount", "number"),
+    ("仓储费$", "storage_fee", "number"),
+    ("品类", "category", "text"),
+    ("资产收益率", "asset_return_rate", "ratio"),
+)
+FINANCE_FIELDS = tuple(item[0] for item in FINANCE_FIELD_DEFINITIONS)
+
 # ================= 登录认证配置 =================
 # token 签名密钥（请自行修改为随机字符串）
 SECRET_KEY = config["SECRET_KEY"]
 # token 有效期（秒），默认 24 小时
 TOKEN_EXPIRE_SECONDS = 2592000
 # 用户列表：用户名 -> {password, tags}
-# tags 可选值: sales, inventory, value, replenishment, history
+# tags 可选值: sales, inventory, value, finance, finance_upload, replenishment, history
 USERS = config["USERS"]
 
 # =============图片请求url限制==================
@@ -111,6 +148,74 @@ def init_shipment_db():
         conn.close()
 
 
+def get_finance_db_connection():
+    """创建启用外键约束的财务数据库连接。"""
+    conn = sqlite3.connect(FINANCE_DB_PATH, timeout=10)
+    conn.row_factory = sqlite3.Row
+    # SQLite 每个连接都要单独启用外键，否则替换月份时可能留下孤立明细。
+    conn.execute("PRAGMA foreign_keys = ON")
+    return conn
+
+
+def init_finance_db():
+    """初始化按月份归档的财务报表及明细表。"""
+    conn = get_finance_db_connection()
+    try:
+        conn.executescript(
+            """
+            CREATE TABLE IF NOT EXISTS finance_reports (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                report_month TEXT NOT NULL UNIQUE,
+                title TEXT NOT NULL,
+                source_filename TEXT,
+                row_count INTEGER NOT NULL DEFAULT 0,
+                uploaded_at TEXT NOT NULL,
+                uploaded_by TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS finance_report_rows (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                report_id INTEGER NOT NULL,
+                row_no INTEGER NOT NULL,
+                parent_asin TEXT NOT NULL,
+                product_name TEXT,
+                sales_amount REAL,
+                sales_quantity REAL,
+                unit_price REAL,
+                fba_fee_per_unit REAL,
+                profit_amount REAL,
+                profit_margin REAL,
+                return_rate REAL,
+                ad_ratio REAL,
+                promotion_ratio REAL,
+                purchase_cost_ratio REAL,
+                logistics_cost_ratio REAL,
+                fba_fee_ratio REAL,
+                return_amount REAL,
+                amazon_net_amount REAL,
+                storage_fee_ratio REAL,
+                ad_spend REAL,
+                promotion_amount REAL,
+                purchase_cost REAL,
+                logistics_cost REAL,
+                fba_fee_amount REAL,
+                storage_fee REAL,
+                category TEXT,
+                asset_return_rate REAL,
+                FOREIGN KEY (report_id) REFERENCES finance_reports(id) ON DELETE CASCADE,
+                UNIQUE (report_id, parent_asin),
+                UNIQUE (report_id, row_no)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_finance_rows_parent_asin
+            ON finance_report_rows(parent_asin);
+            """
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def require_permission(user: str, tag: str, permission_name: str):
     """按 tag 校验当前用户权限，避免只依赖前端隐藏菜单造成接口绕过。"""
     user_info = USERS.get(user) or {}
@@ -137,13 +242,132 @@ def require_value_permission(user: str):
     require_permission(user, "value", "库存金额")
 
 
+def require_finance_permission(user: str):
+    """财务利润数据较敏感，使用独立 finance 标签进行前后端双重鉴权。"""
+    require_permission(user, "finance", "财务利润")
+
+
+def require_finance_upload_permission(user: str):
+    """
+    财务上传使用独立权限。
+
+    必须同时具备查看和上传标签，避免只配置 finance_upload 的账号绕过页面，
+    直接调用保存接口写入自己无法查看的数据。
+    """
+    require_permission(user, "finance", "财务利润")
+    require_permission(user, "finance_upload", "财务利润上传")
+
+
 def get_now_text():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+def validate_finance_month(value) -> str:
+    """校验并标准化 YYYY-MM，防止同一个月份出现多种字符串形式。"""
+    month = str(value or "").strip()
+    try:
+        parsed = datetime.strptime(month, "%Y-%m")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="报表月份必须是 YYYY-MM 格式")
+    if parsed.strftime("%Y-%m") != month:
+        raise HTTPException(status_code=400, detail="报表月份必须是 YYYY-MM 格式")
+    return month
+
+
+def normalize_finance_text(value) -> str:
+    """把 Excel 文本单元格规范化为稳定字符串。"""
+    if value is None:
+        return ""
+    if isinstance(value, (dict, list, tuple)):
+        raise HTTPException(status_code=400, detail="财务表文本字段格式不合法")
+    return str(value).strip()
+
+
+def normalize_finance_number(value, is_ratio=False):
+    """
+    规范化 Excel 数值。
+
+    历史文件可能把金额保存为带逗号或美元符号的文本，也可能把比例保存为
+    ``10.5%``。统一在服务器处理，避免浏览器解析差异污染长期历史数据。
+    """
+    if value is None or value == "":
+        return None
+    if isinstance(value, bool):
+        raise HTTPException(status_code=400, detail="财务表数值字段不能是布尔值")
+
+    has_percent = False
+    if isinstance(value, str):
+        text = value.strip()
+        if text in ("", "-", "--"):
+            return None
+        has_percent = text.endswith("%")
+        negative_by_parentheses = text.startswith("(") and text.endswith(")")
+        text = text.replace(",", "").replace("$", "").replace("%", "").strip()
+        if negative_by_parentheses:
+            text = "-" + text[1:-1].strip()
+        try:
+            number = float(text)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"无法识别财务数值：{value}")
+    elif isinstance(value, (int, float)):
+        number = float(value)
+    else:
+        raise HTTPException(status_code=400, detail="财务表数值字段格式不合法")
+
+    if not math.isfinite(number):
+        raise HTTPException(status_code=400, detail="财务表包含无效数值")
+    if is_ratio and has_percent:
+        number /= 100
+    return number
+
+
+def normalize_finance_rows(rows):
+    """按固定25列表头校验导入行，并返回数据库字段顺序的元组。"""
+    if not isinstance(rows, list) or not rows:
+        raise HTTPException(status_code=400, detail="Excel 中没有可保存的数据行")
+    if len(rows) > 20000:
+        raise HTTPException(status_code=400, detail="单次上传最多允许 20000 行")
+
+    normalized_rows = []
+    seen_parent_asins = set()
+    for index, row in enumerate(rows, start=3):
+        if not isinstance(row, dict):
+            raise HTTPException(status_code=400, detail=f"Excel 第 {index} 行格式不合法")
+
+        missing_fields = [field for field in FINANCE_FIELDS if field not in row]
+        if missing_fields:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Excel 第 {index} 行缺少字段：{missing_fields[0]}"
+            )
+
+        normalized = []
+        for display_name, _column_name, field_type in FINANCE_FIELD_DEFINITIONS:
+            value = row.get(display_name)
+            if field_type == "text":
+                value = normalize_finance_text(value)
+                if display_name == "父ASIN":
+                    # ASIN 不区分大小写，入库时统一大写，便于后续跨月份精确查询。
+                    value = value.upper()
+                normalized.append(value)
+            else:
+                normalized.append(normalize_finance_number(value, is_ratio=field_type == "ratio"))
+
+        parent_asin = normalized[0]
+        if not parent_asin:
+            raise HTTPException(status_code=400, detail=f"Excel 第 {index} 行父ASIN为空")
+        if parent_asin in seen_parent_asins:
+            raise HTTPException(status_code=400, detail=f"父ASIN重复：{parent_asin}")
+        seen_parent_asins.add(parent_asin)
+        normalized_rows.append(tuple(normalized))
+
+    return normalized_rows
 
 
 @app.on_event("startup")
 def on_startup():
     init_shipment_db()
+    init_finance_db()
 
 
 # ================= Token 工具函数 =================
@@ -412,6 +636,182 @@ def get_history_data(user: str = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail="无法读取历史销量表格数据")
 
     return {"status": "success", "total": len(records), "data": records}
+
+
+@app.post("/api/finance_profit/import")
+def import_finance_profit(body: dict, user: str = Depends(get_current_user)):
+    """校验并按月份原子保存单款财务利润表。"""
+    # 按钮隐藏只是交互提示，真正的防篡改边界必须放在服务器保存接口。
+    require_finance_upload_permission(user)
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail="请求体必须是 JSON 对象")
+
+    headers = body.get("headers")
+    if headers != list(FINANCE_FIELDS):
+        raise HTTPException(status_code=400, detail="Excel 表头与单款财务利润模板不一致")
+
+    report_month = validate_finance_month(body.get("reportMonth"))
+    title = normalize_finance_text(body.get("title"))
+    source_filename = normalize_finance_text(body.get("sourceFilename"))
+    if not title:
+        raise HTTPException(status_code=400, detail="Excel 第一行缺少报表标题")
+    if len(title) > 200 or len(source_filename) > 255:
+        raise HTTPException(status_code=400, detail="报表标题或文件名过长")
+
+    year_text, month_text = report_month.split("-", 1)
+    month_number = int(month_text)
+    month_markers = (f"{month_number}月", f"{month_number:02d}月")
+    if year_text not in title or not any(marker in title for marker in month_markers):
+        raise HTTPException(status_code=400, detail="报表标题中的年月与上传月份不一致")
+
+    normalized_rows = normalize_finance_rows(body.get("rows"))
+    replace_existing = body.get("replaceExisting") is True
+    uploaded_at = get_now_text()
+
+    db_columns = [item[1] for item in FINANCE_FIELD_DEFINITIONS]
+    insert_columns = ["report_id", "row_no"] + db_columns
+    placeholders = ",".join("?" for _ in insert_columns)
+    insert_sql = (
+        f"INSERT INTO finance_report_rows ({','.join(insert_columns)}) "
+        f"VALUES ({placeholders})"
+    )
+
+    conn = get_finance_db_connection()
+    try:
+        # 同一月份的报表替换必须是单个事务：旧数据删除、新数据写入任一步失败，
+        # 都回滚到原版本，避免用户看到半个月的数据。
+        conn.execute("BEGIN IMMEDIATE")
+        existing = conn.execute(
+            "SELECT id FROM finance_reports WHERE report_month = ?",
+            (report_month,)
+        ).fetchone()
+
+        if existing and not replace_existing:
+            raise HTTPException(status_code=409, detail=f"{report_month} 已存在，请确认后覆盖")
+
+        if existing:
+            report_id = existing["id"]
+            conn.execute(
+                """
+                UPDATE finance_reports
+                SET title = ?, source_filename = ?, row_count = ?, uploaded_at = ?, uploaded_by = ?
+                WHERE id = ?
+                """,
+                (title, source_filename, len(normalized_rows), uploaded_at, user, report_id)
+            )
+            conn.execute("DELETE FROM finance_report_rows WHERE report_id = ?", (report_id,))
+        else:
+            cursor = conn.execute(
+                """
+                INSERT INTO finance_reports
+                    (report_month, title, source_filename, row_count, uploaded_at, uploaded_by)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (report_month, title, source_filename, len(normalized_rows), uploaded_at, user)
+            )
+            report_id = cursor.lastrowid
+
+        values = [
+            (report_id, row_no, *row_values)
+            for row_no, row_values in enumerate(normalized_rows, start=3)
+        ]
+        conn.executemany(insert_sql, values)
+        conn.commit()
+    except HTTPException:
+        conn.rollback()
+        raise
+    except sqlite3.Error as e:
+        conn.rollback()
+        print(f"保存财务利润表失败: {e}")
+        raise HTTPException(status_code=500, detail="保存财务利润表失败")
+    finally:
+        conn.close()
+
+    return {
+        "status": "success",
+        "report_month": report_month,
+        "row_count": len(normalized_rows),
+        "uploaded_at": uploaded_at,
+        "uploaded_by": user
+    }
+
+
+@app.get("/api/finance_profit/months")
+def get_finance_profit_months(user: str = Depends(get_current_user)):
+    """返回已有月份，供当前页面及后续历史筛选共用。"""
+    require_finance_permission(user)
+    conn = get_finance_db_connection()
+    try:
+        rows = conn.execute(
+            """
+            SELECT report_month, title, source_filename, row_count, uploaded_at, uploaded_by
+            FROM finance_reports
+            ORDER BY report_month DESC
+            """
+        ).fetchall()
+    except sqlite3.Error as e:
+        print(f"读取财务报表月份失败: {e}")
+        raise HTTPException(status_code=500, detail="读取财务报表月份失败")
+    finally:
+        conn.close()
+
+    return {"status": "success", "data": [dict(row) for row in rows]}
+
+
+@app.get("/api/finance_profit")
+def get_finance_profit(month: Optional[str] = None, user: str = Depends(get_current_user)):
+    """读取指定月份；未指定月份时读取数据库中的最新报表。"""
+    require_finance_permission(user)
+    report_month = validate_finance_month(month) if month else None
+
+    conn = get_finance_db_connection()
+    try:
+        if report_month:
+            report = conn.execute(
+                "SELECT * FROM finance_reports WHERE report_month = ?",
+                (report_month,)
+            ).fetchone()
+        else:
+            report = conn.execute(
+                "SELECT * FROM finance_reports ORDER BY report_month DESC LIMIT 1"
+            ).fetchone()
+
+        if not report:
+            return {"status": "empty", "report": None, "data": []}
+
+        db_rows = conn.execute(
+            "SELECT * FROM finance_report_rows WHERE report_id = ? ORDER BY row_no ASC",
+            (report["id"],)
+        ).fetchall()
+    except sqlite3.Error as e:
+        print(f"读取财务利润表失败: {e}")
+        raise HTTPException(status_code=500, detail="读取财务利润表失败")
+    finally:
+        conn.close()
+
+    data = []
+    for db_row in db_rows:
+        item = {
+            display_name: db_row[column_name]
+            for display_name, column_name, _field_type in FINANCE_FIELD_DEFINITIONS
+        }
+        item["_row_no"] = db_row["row_no"]
+        data.append(item)
+
+    report_data = {
+        "report_month": report["report_month"],
+        "title": report["title"],
+        "source_filename": report["source_filename"],
+        "row_count": report["row_count"],
+        "uploaded_at": report["uploaded_at"],
+        "uploaded_by": report["uploaded_by"]
+    }
+    return {
+        "status": "success",
+        "report": report_data,
+        "total": len(data),
+        "data": data
+    }
 
 
 @app.post("/api/shipment/current")

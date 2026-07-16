@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>单款财务利润 - 控制面板</title>
+    <link rel="stylesheet" href="css/dashboard.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body class="finance-profit-page">
+
+    <!-- ===== 登录遮罩层 ===== -->
+    <div id="loginOverlay" class="login-overlay hidden">
+        <div class="login-card">
+            <div class="login-title">单款财务利润</div>
+            <div class="login-subtitle">请输入账号密码登录</div>
+            <input type="text" id="loginUser" class="login-input" placeholder="用户名" autocomplete="username">
+            <input type="password" id="loginPass" class="login-input" placeholder="密码" autocomplete="current-password">
+            <button id="loginBtn" class="login-btn" onclick="doLogin()">登 录</button>
+            <div id="loginError" class="login-error"></div>
+            <div class="login-footer">Acme Zone 数据看板</div>
+        </div>
+    </div>
+
+    <!-- 侧边栏由 common.js 按 finance 权限渲染。 -->
+    <div class="sidebar" data-active-page="finance"></div>
+
+    <div class="main-container">
+        <header class="top-header">
+            <div class="header-tabs">
+                <div class="tab active">单款财务利润<div class="close-icon-placeholder"></div></div>
+            </div>
+            <div class="header-right">
+                <div class="user-avatar-placeholder"></div>
+            </div>
+        </header>
+
+        <main class="content-scrollable">
+            <div class="page-title-row">
+                <div class="title-group">
+                    <h2>单款财务利润<div class="finance-title-marker"></div></h2>
+                    <div class="update-time">更新时间 <span id="target-time">--</span></div>
+                </div>
+                <div class="finance-page-actions">
+                    <!-- 初始隐藏以避免权限信息返回前短暂显示；finance_profit.js 鉴权后再决定是否展示。 -->
+                    <button id="financeSaveBtn" class="finance-save-btn" type="button" onclick="savePendingFinanceReport()" disabled hidden>
+                        确认保存
+                    </button>
+                </div>
+            </div>
+
+            <!-- 月份下拉直接读取服务器已有月份，为后续批量历史导入预留统一入口。 -->
+            <div class="filter-row">
+                <label class="finance-month-filter" for="reportMonthSelect">
+                    <span>报表月份</span>
+                    <select id="reportMonthSelect" onchange="handleMonthChange(event)" disabled>
+                        <option value="">暂无数据</option>
+                    </select>
+                </label>
+                <div id="financeImportStatus" class="finance-import-status" role="status" aria-live="polite"></div>
+            </div>
+
+            <div class="stats-grid finance-profit-stats">
+                <div class="stat-card finance-profit-stat-card">
+                    <div class="stat-header">总销售额</div>
+                    <div class="stat-value" id="card-sales-amount">--</div>
+                </div>
+                <div class="stat-card finance-profit-stat-card">
+                    <div class="stat-header">总销量</div>
+                    <div class="stat-value" id="card-sales-quantity">--</div>
+                </div>
+                <div class="stat-card finance-profit-stat-card">
+                    <div class="stat-header">加权客单价</div>
+                    <div class="stat-value" id="card-unit-price">--</div>
+                </div>
+                <div class="stat-card finance-profit-stat-card">
+                    <div class="stat-header">总利润额</div>
+                    <div class="stat-value" id="card-profit-amount">--</div>
+                </div>
+                <div class="stat-card finance-profit-stat-card">
+                    <div class="stat-header">整体利润率</div>
+                    <div class="stat-value" id="card-profit-margin">--</div>
+                </div>
+                <div class="stat-card finance-profit-stat-card">
+                    <div class="stat-header">整体退货率</div>
+                    <div class="stat-value" id="card-return-rate">--</div>
+                </div>
+            </div>
+
+            <div class="table-toolbar">
+                <div class="toolbar-left">
+                    <div class="search-group">
+                        <div class="finance-search-label">搜索</div>
+                        <input type="text" id="searchInput" placeholder="父ASIN / 品名 / 品类" oninput="handleFinanceSearch(event)">
+                    </div>
+                </div>
+                <div class="toolbar-right">
+                    <input id="financeFileInput" type="file" accept=".xlsx,.xls" hidden onchange="handleFinanceFile(event)">
+                    <button id="financeUploadBtn" class="download-btn finance-upload-btn" type="button" onclick="triggerFinanceUpload()" hidden>⬆ 上传 Excel</button>
+                    <button class="download-btn" type="button" onclick="downloadFinanceCSV()" title="导出当前筛选结果为CSV">⬇ 下载</button>
+                    <span id="toolbar-total-count">共 0 条</span>
+                </div>
+            </div>
+
+            <div class="table-container finance-profit-table-container">
+                <table class="finance-profit-table">
+                    <thead>
+                        <tr>
+                            <!-- 表头固定在网页中，上传文件只能写入数据，不能改变页面字段结构。 -->
+                            <th class="finance-sticky-col-1">父ASIN</th>
+                            <th class="finance-sticky-col-2">品名</th>
+                            <th data-finance-sort-field="销售额$"><button type="button" class="finance-sort-button" onclick="handleFinanceSort('销售额$')">销售额$ <span id="finance-sort-icon-2" class="sort-icon sort-none"></span></button></th>
+                            <th data-finance-sort-field="销量"><button type="button" class="finance-sort-button" onclick="handleFinanceSort('销量')">销量 <span id="finance-sort-icon-3" class="sort-icon sort-none"></span></button></th>
+                            <th data-finance-sort-field="客单价$"><button type="button" class="finance-sort-button" onclick="handleFinanceSort('客单价$')">客单价$ <span id="finance-sort-icon-4" class="sort-icon sort-none"></span></button></th>
+                            <th data-finance-sort-field="FBA fee"><button type="button" class="finance-sort-button" onclick="handleFinanceSort('FBA fee')">FBA fee <span id="finance-sort-icon-5" class="sort-icon sort-none"></span></button></th>
+                            <th data-finance-sort-field="利润额$"><button type="button" class="finance-sort-button" onclick="handleFinanceSort('利润额$')">利润额$ <span id="finance-sort-icon-6" class="sort-icon sort-none"></span></button></th>
+                            <th data-finance-sort-field="利润率"><button type="button" class="finance-sort-button" onclick="handleFinanceSort('利润率')">利润率 <span id="finance-sort-icon-7" class="sort-icon sort-none"></span></button></th>
+                            <th data-finance-sort-field="退货率"><button type="button" class="finance-sort-button" onclick="handleFinanceSort('退货率')">退货率 <span id="finance-sort-icon-8" class="sort-icon sort-none"></span></button></th>
+                            <th data-finance-sort-field="广告占比"><button type="button" class="finance-sort-button" onclick="handleFinanceSort('广告占比')">广告占比 <span id="finance-sort-icon-9" class="sort-icon sort-none"></span></button></th>
+                            <th data-finance-sort-field="折扣活动占比"><button type="button" class="finance-sort-button" onclick="handleFinanceSort('折扣活动占比')">折扣活动占比 <span id="finance-sort-icon-10" class="sort-icon sort-none"></span></button></th>
+                            <th data-finance-sort-field="采购成本占比"><button type="button" class="finance-sort-button" onclick="handleFinanceSort('采购成本占比')">采购成本占比 <span id="finance-sort-icon-11" class="sort-icon sort-none"></span></button></th>
+                            <th data-finance-sort-field="物流成本占比"><button type="button" class="finance-sort-button" onclick="handleFinanceSort('物流成本占比')">物流成本占比 <span id="finance-sort-icon-12" class="sort-icon sort-none"></span></button></th>
+                            <th data-finance-sort-field="FBA fee 占比"><button type="button" class="finance-sort-button" onclick="handleFinanceSort('FBA fee 占比')">FBA fee 占比 <span id="finance-sort-icon-13" class="sort-icon sort-none"></span></button></th>
+                            <th data-finance-sort-field="退货金额$"><button type="button" class="finance-sort-button" onclick="handleFinanceSort('退货金额$')">退货金额$ <span id="finance-sort-icon-14" class="sort-icon sort-none"></span></button></th>
+                            <th data-finance-sort-field="亚马逊扣费后金额$"><button type="button" class="finance-sort-button" onclick="handleFinanceSort('亚马逊扣费后金额$')">亚马逊扣费后金额$ <span id="finance-sort-icon-15" class="sort-icon sort-none"></span></button></th>
+                            <th data-finance-sort-field="仓储费占比"><button type="button" class="finance-sort-button" onclick="handleFinanceSort('仓储费占比')">仓储费占比 <span id="finance-sort-icon-16" class="sort-icon sort-none"></span></button></th>
+                            <th data-finance-sort-field="广告费$"><button type="button" class="finance-sort-button" onclick="handleFinanceSort('广告费$')">广告费$ <span id="finance-sort-icon-17" class="sort-icon sort-none"></span></button></th>
+                            <th data-finance-sort-field="折扣活动金额$"><button type="button" class="finance-sort-button" onclick="handleFinanceSort('折扣活动金额$')">折扣活动金额$ <span id="finance-sort-icon-18" class="sort-icon sort-none"></span></button></th>
+                            <th data-finance-sort-field="采购成本 $"><button type="button" class="finance-sort-button" onclick="handleFinanceSort('采购成本 $')">采购成本 $ <span id="finance-sort-icon-19" class="sort-icon sort-none"></span></button></th>
+                            <th data-finance-sort-field="物流成本$"><button type="button" class="finance-sort-button" onclick="handleFinanceSort('物流成本$')">物流成本$ <span id="finance-sort-icon-20" class="sort-icon sort-none"></span></button></th>
+                            <th data-finance-sort-field="FBA fee$"><button type="button" class="finance-sort-button" onclick="handleFinanceSort('FBA fee$')">FBA fee$ <span id="finance-sort-icon-21" class="sort-icon sort-none"></span></button></th>
+                            <th data-finance-sort-field="仓储费$"><button type="button" class="finance-sort-button" onclick="handleFinanceSort('仓储费$')">仓储费$ <span id="finance-sort-icon-22" class="sort-icon sort-none"></span></button></th>
+                            <th>品类</th>
+                            <th data-finance-sort-field="资产收益率"><button type="button" class="finance-sort-button" onclick="handleFinanceSort('资产收益率')">资产收益率 <span id="finance-sort-icon-24" class="sort-icon sort-none"></span></button></th>
+                        </tr>
+                    </thead>
+                    <tbody id="financeTableBody">
+                        <tr><td colspan="25" class="finance-empty-cell">尚未上传财务利润表</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <script src="js/common.js"></script>
+    <script src="js/finance_profit.js"></script>
+</body>
+</html>

@@ -11,6 +11,7 @@ const PAGE_ACCESS_MAP = {
     'sales.html': 'sales',
     'inventory.html': 'inventory',
     'inventory_value.html': 'value',
+    'finance_profit.html': 'finance',
     'vc_replenishment_model.html': 'replenishment',
     'shipment_audit.html': 'replenishment',
     'history.html': 'history',
@@ -21,6 +22,7 @@ const NAV_ITEMS = [
     { key: 'sales', label: '销售', href: 'sales.html', tag: 'sales' },
     { key: 'inventory', label: '库存', href: 'inventory.html', tag: 'inventory' },
     { key: 'value', label: '库存金额', href: 'inventory_value.html', tag: 'value' },
+    { key: 'finance', label: '利润', href: 'finance_profit.html', tag: 'finance' },
     { key: 'replenishment', label: '发货', href: 'vc_replenishment_model.html', tag: 'replenishment' },
     { key: 'history', label: '历史', href: 'history.html', tag: 'history' },
     { key: 'product', label: '产品', href: 'duffle-bag-report.html', tag: null }

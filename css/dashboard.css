@@ -360,6 +360,276 @@ tbody tr:hover td.sticky-col-2 {
     color: #d89020;
 }
 
+/* ===== 单款财务利润页专属样式 ===== */
+.finance-profit-page [hidden] {
+    display: none !important;
+}
+
+.finance-profit-page .title-group {
+    gap: 60px;
+}
+
+.finance-profit-page .finance-title-marker {
+    width: 16px;
+    height: 16px;
+    background: #165dff;
+    border-radius: 2px;
+    display: inline-block;
+}
+
+.finance-profit-page .finance-page-actions {
+    display: flex;
+    align-items: center;
+    min-height: 30px;
+}
+
+.finance-profit-page .finance-save-btn {
+    height: 28px;
+    padding: 0 16px;
+    border: 1px solid #165dff;
+    border-radius: 2px;
+    background: #165dff;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.15s, border-color 0.15s;
+}
+
+.finance-profit-page .finance-save-btn:hover:not(:disabled) {
+    background: #0e4bd6;
+    border-color: #0e4bd6;
+}
+
+.finance-profit-page .finance-save-btn:disabled {
+    border-color: #e5e6eb;
+    background: #f2f3f5;
+    color: #a9aeb8;
+    cursor: not-allowed;
+}
+
+.finance-profit-page .finance-month-filter {
+    min-width: 190px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 8px;
+    background: #fff;
+    border: 1px solid #e5e6eb;
+    border-radius: 2px;
+    color: #4e5969;
+    font-size: 12px;
+}
+
+.finance-profit-page .finance-month-filter select {
+    flex: 1;
+    min-width: 90px;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: #1d2129;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.finance-profit-page .finance-month-filter select:disabled {
+    color: #86909c;
+    cursor: not-allowed;
+}
+
+.finance-profit-page .finance-import-status {
+    min-height: 28px;
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+    color: #86909c;
+    font-size: 12px;
+}
+
+.finance-profit-page .finance-import-status.success { color: #00b42a; }
+.finance-profit-page .finance-import-status.error { color: #f53f3f; }
+.finance-profit-page .finance-import-status.loading { color: #165dff; }
+.finance-profit-page .finance-import-status.pending { color: #d89020; font-weight: 600; }
+
+.finance-profit-page .finance-profit-stats {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.finance-profit-page .finance-profit-stat-card {
+    height: 80px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 8px;
+}
+
+.finance-profit-page .finance-profit-stat-card .stat-header {
+    margin: 0;
+    font-size: 12px;
+}
+
+.finance-profit-page .finance-profit-stat-card .stat-value {
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.finance-profit-page .finance-search-label {
+    width: 80px;
+    padding: 0 8px;
+    border-right: 1px solid #e5e6eb;
+    line-height: 22px;
+    text-align: center;
+    color: #4e5969;
+}
+
+.finance-profit-page .search-group input {
+    width: 220px;
+    padding: 0 8px;
+    border: none;
+    color: #1d2129;
+    font-size: 10px;
+}
+
+.finance-profit-page .finance-upload-btn {
+    color: #fff;
+    background: #165dff;
+    border-color: #165dff;
+}
+
+.finance-profit-page .finance-upload-btn:hover {
+    color: #fff;
+    background: #0e4bd6;
+    border-color: #0e4bd6;
+}
+
+.finance-profit-page .download-btn:disabled {
+    color: #c9cdd4;
+    background: #f7f8fa;
+    border-color: #e5e6eb;
+    cursor: not-allowed;
+}
+
+.finance-profit-page .finance-profit-table-container {
+    flex: 1;
+}
+
+.finance-profit-page .finance-profit-table {
+    width: max-content;
+    min-width: 100%;
+}
+
+.finance-profit-page .finance-profit-table th,
+.finance-profit-page .finance-profit-table td {
+    min-width: 105px;
+    text-align: right;
+    white-space: nowrap;
+    word-break: normal;
+}
+
+.finance-profit-page .finance-profit-table th {
+    text-align: center;
+}
+
+.finance-profit-page .finance-sort-button {
+    width: 100%;
+    min-height: 20px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.finance-profit-page th[data-finance-sort-field]:hover {
+    background-color: #e5e6eb;
+}
+
+.finance-profit-page .finance-sort-button:focus-visible {
+    outline: 2px solid #165dff;
+    outline-offset: 2px;
+}
+
+.finance-profit-page .finance-profit-table .finance-sticky-col-1 {
+    width: 130px;
+    min-width: 130px;
+    max-width: 130px;
+    position: sticky;
+    left: 0;
+    text-align: left;
+}
+
+.finance-profit-page .finance-profit-table .finance-sticky-col-2 {
+    width: 230px;
+    min-width: 230px;
+    max-width: 230px;
+    position: sticky;
+    left: 130px;
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.finance-profit-page .finance-profit-table thead .finance-sticky-col-1,
+.finance-profit-page .finance-profit-table thead .finance-sticky-col-2 {
+    z-index: 30;
+    background-color: #f7f8fa;
+}
+
+.finance-profit-page .finance-profit-table tbody .finance-sticky-col-1,
+.finance-profit-page .finance-profit-table tbody .finance-sticky-col-2 {
+    z-index: 5;
+    background-color: #fff;
+}
+
+.finance-profit-page .finance-profit-table tbody tr:hover td,
+.finance-profit-page .finance-profit-table tbody tr:hover .finance-sticky-col-1,
+.finance-profit-page .finance-profit-table tbody tr:hover .finance-sticky-col-2 {
+    background-color: #f2f3f5;
+}
+
+.finance-profit-page .finance-empty-cell {
+    height: 160px;
+    text-align: center !important;
+    color: #86909c;
+}
+
+.finance-profit-page .finance-negative {
+    color: #f53f3f !important;
+}
+
+@media (max-width: 1200px) {
+    .finance-profit-page .finance-profit-stats {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 760px) {
+    .finance-profit-page .finance-profit-stats {
+        grid-template-columns: 1fr;
+    }
+
+    .finance-profit-page .title-group {
+        gap: 20px;
+    }
+
+    .finance-profit-page .table-toolbar {
+        height: auto;
+        min-height: 40px;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+}
+
 /* ===== 首页 ===== */
 .front-page .front-content {
     flex: 1;
