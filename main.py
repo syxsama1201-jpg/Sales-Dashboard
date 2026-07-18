@@ -60,7 +60,10 @@ SHIPMENT_DB_PATH = os.environ.get("SHIPMENT_DB_PATH", "./shipment_current.db")
 # 单款财务利润数据库
 # 财务报表需要按月份长期保留，不能像发货审核那样只覆盖一条 JSON。
 # 独立数据库既避免与现有业务表耦合，也便于服务器单独设置备份路径。
-FINANCE_DB_PATH = os.environ.get("FINANCE_DB_PATH", "./finance_profit.db")
+# 默认路径锚定到本文件目录，避免服务从 /root 等其他工作目录启动时意外创建空库。
+# 仍允许部署环境通过 FINANCE_DB_PATH 指向独立的数据盘或备份目录。
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+FINANCE_DB_PATH = os.environ.get("FINANCE_DB_PATH", os.path.join(BASE_DIR, "finance_profit.db"))
 
 # Excel 第二行的表头是导入契约。前端会先校验一次，后端仍需再次校验，
 # 因为不能把浏览器提交的数据默认视为可信。
