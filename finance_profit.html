@@ -87,6 +87,34 @@
                 </div>
             </div>
 
+            <!-- 历史查询不复用当前月搜索状态，避免跨月结果改变当月表格、卡片或导出范围。 -->
+            <section class="finance-history-query" aria-labelledby="financeHistoryQueryTitle">
+                <div class="finance-history-query-title" id="financeHistoryQueryTitle">历史父 ASIN 查询</div>
+                <div class="finance-history-query-controls">
+                    <label class="finance-history-input-wrap" for="financeHistoryParentAsinInput">
+                        <span>父 ASIN</span>
+                        <input id="financeHistoryParentAsinInput" type="text" placeholder="输入父 ASIN 查询全部月份"
+                            onkeydown="handleFinanceHistoryQueryKeydown(event)" autocomplete="off">
+                    </label>
+                    <button id="financeHistorySearchBtn" class="finance-history-query-btn" type="button" onclick="searchFinanceHistory()">查询</button>
+                    <button class="finance-history-clear-btn" type="button" onclick="clearFinanceHistorySearch()">清空</button>
+                    <span id="financeHistoryQueryStatus" class="finance-history-query-status" role="status" aria-live="polite"></span>
+                </div>
+            </section>
+
+            <section id="financeHistoryResults" class="finance-history-results" hidden aria-labelledby="financeHistoryResultsTitle">
+                <div class="finance-history-results-header">
+                    <h3 id="financeHistoryResultsTitle">历史查询结果</h3>
+                    <span id="financeHistoryResultCount"></span>
+                </div>
+                <div class="table-container finance-history-table-container">
+                    <table class="finance-history-table">
+                        <thead id="financeHistoryTableHead"></thead>
+                        <tbody id="financeHistoryTableBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
             <div class="table-toolbar">
                 <div class="toolbar-left">
                     <div class="search-group">

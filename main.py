@@ -761,6 +761,105 @@ def get_finance_profit_months(user: str = Depends(get_current_user)):
     return {"status": "success", "data": [dict(row) for row in rows]}
 
 
+@app.get("/api/finance_profit/history")
+def get_finance_profit_history(parent_asin: str, user: str = Depends(get_current_user)):
+    """
+    按父 ASIN 返回连续月份的历史财务记录。
+
+    历史查询的时间轴不能只由“命中该 ASIN 的月份”决定：否则某个月未上传报表、
+    或报表中没有该 ASIN 时，前端会把该月误认为不存在。这里先从全部已归档报表
+    取得最早和最晚月份，再补齐其中每一个自然月；未命中时由 has_data=False 明确
+    告知前端显示“无数据”。
+    """
+    require_finance_permission(user)
+    normalized_parent_asin = normalize_finance_text(parent_asin).upper()
+    if not normalized_parent_asin:
+        raise HTTPException(status_code=400, detail="父ASIN不能为空")
+
+    conn = get_finance_db_connection()
+    try:
+        range_row = conn.execute(
+            "SELECT MIN(report_month) AS start_month, MAX(report_month) AS end_month FROM finance_reports"
+        ).fetchone()
+        start_month = range_row["start_month"] if range_row else None
+        end_month = range_row["end_month"] if range_row else None
+        if not start_month or not end_month:
+            return {
+                "status": "empty",
+                "parent_asin": normalized_parent_asin,
+                "start_month": None,
+                "end_month": None,
+                "total": 0,
+                "matched_total": 0,
+                "data": []
+            }
+
+        # 字段清单来自固定导入契约，而不是请求参数；既避免列名注入，也确保结果
+        # 与当前月查询返回的 25 个展示字段完全一致。
+        detail_columns = ", ".join(
+            "rows.{0} AS {0}".format(column_name)
+            for _display_name, column_name, _field_type in FINANCE_FIELD_DEFINITIONS
+        )
+        matched_rows = conn.execute(
+            """
+            SELECT reports.report_month, rows.row_no AS matched_row_no, {detail_columns}
+            FROM finance_reports AS reports
+            LEFT JOIN finance_report_rows AS rows
+                ON rows.report_id = reports.id
+                AND rows.parent_asin = ?
+            ORDER BY reports.report_month DESC
+            """.format(detail_columns=detail_columns),
+            (normalized_parent_asin,)
+        ).fetchall()
+    except sqlite3.Error as e:
+        print(f"读取财务利润历史记录失败: {e}")
+        raise HTTPException(status_code=500, detail="读取财务利润历史记录失败")
+    finally:
+        conn.close()
+
+    row_by_month = {
+        row["report_month"]: row
+        for row in matched_rows
+        if row["matched_row_no"] is not None
+    }
+
+    start_year, start_month_number = (int(part) for part in start_month.split("-"))
+    end_year, end_month_number = (int(part) for part in end_month.split("-"))
+    history_data = []
+    year, month_number = start_year, start_month_number
+    while (year, month_number) <= (end_year, end_month_number):
+        report_month = f"{year:04d}-{month_number:02d}"
+        matched_row = row_by_month.get(report_month)
+        item = {
+            "report_month": report_month,
+            "has_data": matched_row is not None
+        }
+        if matched_row is not None:
+            item.update({
+                display_name: matched_row[column_name]
+                for display_name, column_name, _field_type in FINANCE_FIELD_DEFINITIONS
+            })
+        history_data.append(item)
+
+        if month_number == 12:
+            year += 1
+            month_number = 1
+        else:
+            month_number += 1
+
+    # 用户需要最近月份优先阅读；月份范围仍按自然月补齐，而不是只返回有记录的月份。
+    history_data.reverse()
+    return {
+        "status": "success",
+        "parent_asin": normalized_parent_asin,
+        "start_month": start_month,
+        "end_month": end_month,
+        "total": len(history_data),
+        "matched_total": sum(1 for item in history_data if item["has_data"]),
+        "data": history_data
+    }
+
+
 @app.get("/api/finance_profit")
 def get_finance_profit(month: Optional[str] = None, user: str = Depends(get_current_user)):
     """读取指定月份；未指定月份时读取数据库中的最新报表。"""

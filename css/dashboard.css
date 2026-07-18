@@ -607,6 +607,186 @@ tbody tr:hover td.sticky-col-2 {
     color: #f53f3f !important;
 }
 
+.finance-profit-page .finance-history-query {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 14px;
+    padding: 10px 12px;
+    background: #fff;
+    border: 1px solid #e5e6eb;
+}
+
+.finance-profit-page .finance-history-query-title {
+    flex: 0 0 auto;
+    color: #1d2129;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.finance-profit-page .finance-history-query-controls {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    min-width: 0;
+}
+
+.finance-profit-page .finance-history-input-wrap {
+    display: flex;
+    align-items: center;
+    height: 28px;
+    border: 1px solid #e5e6eb;
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.finance-profit-page .finance-history-input-wrap span {
+    padding: 0 8px;
+    color: #4e5969;
+    font-size: 12px;
+    white-space: nowrap;
+    border-right: 1px solid #e5e6eb;
+}
+
+.finance-profit-page .finance-history-input-wrap input {
+    width: 230px;
+    min-width: 0;
+    height: 100%;
+    padding: 0 8px;
+    color: #1d2129;
+    font-size: 12px;
+    border: none;
+    outline: none;
+}
+
+.finance-profit-page .finance-history-query-btn,
+.finance-profit-page .finance-history-clear-btn {
+    height: 28px;
+    padding: 0 12px;
+    font-size: 12px;
+    border-radius: 2px;
+    cursor: pointer;
+}
+
+.finance-profit-page .finance-history-query-btn {
+    color: #fff;
+    background: #165dff;
+    border: 1px solid #165dff;
+}
+
+.finance-profit-page .finance-history-query-btn:hover:not(:disabled) {
+    background: #0e4bd6;
+    border-color: #0e4bd6;
+}
+
+.finance-profit-page .finance-history-query-btn:disabled {
+    color: #a9aeb8;
+    background: #f2f3f5;
+    border-color: #e5e6eb;
+    cursor: not-allowed;
+}
+
+.finance-profit-page .finance-history-clear-btn {
+    color: #4e5969;
+    background: #fff;
+    border: 1px solid #c9cdd4;
+}
+
+.finance-profit-page .finance-history-clear-btn:hover {
+    color: #165dff;
+    border-color: #165dff;
+}
+
+.finance-profit-page .finance-history-query-status {
+    min-width: 160px;
+    color: #86909c;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.finance-profit-page .finance-history-query-status.success { color: #00b42a; }
+.finance-profit-page .finance-history-query-status.error { color: #f53f3f; }
+.finance-profit-page .finance-history-query-status.loading { color: #165dff; }
+
+.finance-profit-page .finance-history-results {
+    margin-top: 10px;
+    background: #fff;
+    border: 1px solid #e5e6eb;
+}
+
+.finance-profit-page .finance-history-results-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 42px;
+    padding: 0 12px;
+    border-bottom: 1px solid #e5e6eb;
+}
+
+.finance-profit-page .finance-history-results-header h3 {
+    margin: 0;
+    color: #1d2129;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.finance-profit-page .finance-history-results-header span {
+    color: #86909c;
+    font-size: 12px;
+}
+
+.finance-profit-page .finance-history-table-container {
+    max-height: 460px;
+}
+
+.finance-profit-page .finance-history-table {
+    width: max-content;
+    min-width: 100%;
+}
+
+.finance-profit-page .finance-history-table th,
+.finance-profit-page .finance-history-table td {
+    min-width: 105px;
+    text-align: right;
+    white-space: nowrap;
+    word-break: normal;
+}
+
+.finance-profit-page .finance-history-table th {
+    text-align: center;
+}
+
+.finance-profit-page .finance-history-table .finance-history-time-col {
+    position: sticky;
+    left: 0;
+    z-index: 5;
+    min-width: 96px;
+    width: 96px;
+    max-width: 96px;
+    text-align: center;
+    background: #fff;
+}
+
+.finance-profit-page .finance-history-table thead .finance-history-time-col {
+    z-index: 30;
+    background: #f7f8fa;
+}
+
+.finance-profit-page .finance-history-table tbody tr:hover td,
+.finance-profit-page .finance-history-table tbody tr:hover .finance-history-time-col {
+    background-color: #f2f3f5;
+}
+
+.finance-profit-page .finance-history-table .finance-history-no-data-cell,
+.finance-profit-page .finance-history-empty-cell {
+    height: 44px;
+    color: #86909c;
+    text-align: center !important;
+}
+
 @media (max-width: 1200px) {
     .finance-profit-page .finance-profit-stats {
         grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -627,6 +807,26 @@ tbody tr:hover td.sticky-col-2 {
         min-height: 40px;
         flex-wrap: wrap;
         gap: 6px;
+    }
+
+    .finance-profit-page .finance-history-query,
+    .finance-profit-page .finance-history-query-controls {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .finance-profit-page .finance-history-query-controls {
+        justify-content: flex-start;
+    }
+
+    .finance-profit-page .finance-history-input-wrap,
+    .finance-profit-page .finance-history-input-wrap input {
+        width: 100%;
+    }
+
+    .finance-profit-page .finance-history-query-status {
+        min-width: 0;
+        white-space: normal;
     }
 }
 

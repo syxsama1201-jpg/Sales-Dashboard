@@ -33,6 +33,8 @@ let pendingFinancePayload = null;
 let financeCanUpload = false;
 let financeSaveInProgress = false;
 let currentFinanceSort = { field: null, direction: 'none' };
+let financeHistoryQueryInProgress = false;
+let financeHistoryRequestVersion = 0;
 
 function onLoginSuccess() {
     requireFreshAuth({
@@ -479,6 +481,147 @@ function setFinanceCard(id, text, isNegative) {
 function handleFinanceSearch(event) {
     currentFinanceSearch = event.target.value.trim().toLowerCase();
     applyFinanceFilter();
+}
+
+// ==================== 历史父 ASIN 查询 ====================
+
+function handleFinanceHistoryQueryKeydown(event) {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    searchFinanceHistory();
+}
+
+async function searchFinanceHistory() {
+    const input = document.getElementById('financeHistoryParentAsinInput');
+    const searchButton = document.getElementById('financeHistorySearchBtn');
+    const parentAsin = valueToFinanceText(input.value).toUpperCase();
+
+    // 与导入时的父 ASIN 标准化保持一致。这样用户输入小写或两侧空格时，
+    // 也不会因为展示层差异漏掉本应命中的历史记录。
+    input.value = parentAsin;
+    if (!parentAsin) {
+        showFinanceHistoryQueryStatus('请输入父 ASIN', 'error');
+        input.focus();
+        return;
+    }
+    if (financeHistoryQueryInProgress) return;
+
+    const requestVersion = ++financeHistoryRequestVersion;
+    financeHistoryQueryInProgress = true;
+    searchButton.disabled = true;
+    showFinanceHistoryQueryStatus('正在查询 ' + parentAsin + ' 的历史数据…', 'loading');
+
+    try {
+        // 此接口只读取服务器已归档的数据。待确认保存的 Excel 预览不能混入历史
+        // 结果，否则用户会无法判断某条记录是否已经写入并可被其他账号读取。
+        const result = await financeApiRequest(
+            '/api/finance_profit/history?parent_asin=' + encodeURIComponent(parentAsin)
+        );
+        if (requestVersion !== financeHistoryRequestVersion) return;
+
+        const rows = Array.isArray(result.data) ? result.data : [];
+        renderFinanceHistoryResults(rows);
+        if (result.status === 'empty') {
+            showFinanceHistoryQueryStatus('数据库暂未归档财务报表', 'error');
+        } else {
+            const matchedTotal = Number(result.matched_total) || 0;
+            showFinanceHistoryQueryStatus(
+                '查询完成：' + rows.length + ' 个自然月，其中 ' + matchedTotal + ' 个月有数据',
+                'success'
+            );
+        }
+    } catch (error) {
+        if (requestVersion === financeHistoryRequestVersion) {
+            showFinanceHistoryQueryStatus(error.message, 'error');
+        }
+    } finally {
+        if (requestVersion === financeHistoryRequestVersion) {
+            financeHistoryQueryInProgress = false;
+            searchButton.disabled = false;
+        }
+    }
+}
+
+function clearFinanceHistorySearch() {
+    // 作废正在返回的旧请求，防止用户清空后旧响应再次把结果区显示出来。
+    financeHistoryRequestVersion += 1;
+    financeHistoryQueryInProgress = false;
+    document.getElementById('financeHistoryParentAsinInput').value = '';
+    document.getElementById('financeHistorySearchBtn').disabled = false;
+    document.getElementById('financeHistoryResults').hidden = true;
+    document.getElementById('financeHistoryTableHead').innerHTML = '';
+    document.getElementById('financeHistoryTableBody').innerHTML = '';
+    document.getElementById('financeHistoryResultCount').textContent = '';
+    showFinanceHistoryQueryStatus('', '');
+}
+
+function renderFinanceHistoryResults(rows) {
+    const results = document.getElementById('financeHistoryResults');
+    const thead = document.getElementById('financeHistoryTableHead');
+    const tbody = document.getElementById('financeHistoryTableBody');
+    const count = document.getElementById('financeHistoryResultCount');
+    results.hidden = false;
+    thead.innerHTML = '';
+    tbody.innerHTML = '';
+
+    const headerRow = document.createElement('tr');
+    const monthHeader = document.createElement('th');
+    monthHeader.className = 'finance-history-time-col';
+    monthHeader.textContent = '时间';
+    headerRow.appendChild(monthHeader);
+    FINANCE_FIELDS.forEach(function(field) {
+        const th = document.createElement('th');
+        th.textContent = field;
+        headerRow.appendChild(th);
+    });
+    thead.appendChild(headerRow);
+
+    if (!rows.length) {
+        const tr = document.createElement('tr');
+        const td = document.createElement('td');
+        td.colSpan = FINANCE_FIELDS.length + 1;
+        td.className = 'finance-history-empty-cell';
+        td.textContent = '暂无已归档的财务报表';
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+        count.textContent = '共 0 个月';
+        return;
+    }
+
+    const matchedTotal = rows.filter(function(row) { return row.has_data; }).length;
+    count.textContent = '共 ' + rows.length + ' 个月 · ' + matchedTotal + ' 个月有数据';
+    rows.forEach(function(row) {
+        const tr = document.createElement('tr');
+        const monthCell = document.createElement('td');
+        monthCell.className = 'finance-history-time-col';
+        monthCell.textContent = valueToFinanceText(row.report_month) || '-';
+        tr.appendChild(monthCell);
+
+        if (!row.has_data) {
+            const emptyCell = document.createElement('td');
+            emptyCell.colSpan = FINANCE_FIELDS.length;
+            emptyCell.className = 'finance-history-no-data-cell';
+            emptyCell.textContent = '无数据';
+            tr.appendChild(emptyCell);
+        } else {
+            FINANCE_FIELDS.forEach(function(field) {
+                const td = document.createElement('td');
+                td.textContent = formatFinanceCell(field, row[field]);
+                if (FINANCE_TEXT_FIELDS.has(field)) td.title = valueToFinanceText(row[field]);
+                if (!FINANCE_TEXT_FIELDS.has(field) && toFinanceNumber(row[field]) < 0) {
+                    td.classList.add('finance-negative');
+                }
+                tr.appendChild(td);
+            });
+        }
+        tbody.appendChild(tr);
+    });
+}
+
+function showFinanceHistoryQueryStatus(message, type) {
+    const element = document.getElementById('financeHistoryQueryStatus');
+    element.textContent = message || '';
+    element.className = 'finance-history-query-status' + (type ? ' ' + type : '');
 }
 
 function handleFinanceSort(field) {
