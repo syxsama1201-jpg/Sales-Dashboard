@@ -13,6 +13,11 @@ const FINANCE_FIELDS = [
     '折扣活动金额$', '采购成本 $', '物流成本$', 'FBA fee$', '仓储费$', '品类', '资产收益率'
 ];
 
+// 页面展示、保存及后端数据库仍只使用 FINANCE_FIELDS 中的 25 个固定业务字段。
+// 允许模板在其后保留最多 5 个附加列，兼容不同版本导出的备注或辅助字段，
+// 但不把这些未定义字段带入保存载荷，避免悄然改变既有财务数据契约。
+const FINANCE_MAX_UPLOAD_HEADER_COLUMNS = 30;
+
 const FINANCE_TEXT_FIELDS = new Set(['父ASIN', '品名', '品类']);
 const FINANCE_RATIO_FIELDS = new Set([
     '利润率', '退货率', '广告占比', '折扣活动占比', '采购成本占比',
@@ -380,8 +385,8 @@ async function parseFinanceWorkbook(file) {
             '”，实际为“' + (headers[badHeaderIndex] || '空') + '”'
         );
     }
-    if (headerRow.slice(FINANCE_FIELDS.length).some(function(value) { return !isBlankExcelValue(value); })) {
-        throw new Error('模板表头超过固定的 25 列，请检查文件版本');
+    if (headerRow.slice(FINANCE_MAX_UPLOAD_HEADER_COLUMNS).some(function(value) { return !isBlankExcelValue(value); })) {
+        throw new Error('模板表头仅允许 25 到 ' + FINANCE_MAX_UPLOAD_HEADER_COLUMNS + ' 列，请检查文件版本');
     }
 
     const rows = [];
