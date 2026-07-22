@@ -592,7 +592,7 @@ body.ship-column-resizing { cursor: col-resize; user-select: none; }
 
     <div class="ship-alert with-action">
         <div class="ship-alert-text">
-            <b>计算口径：</b>导入后数字统一四舍五入为 0 位。G=L/F；海外仓 H=MAX(0,60×F−L−Q)；供应商仓 H=MIN(V,MAX(0,105×F−L−Q))，其中 V 为上传表格 O 列“可发”。I=(H+L)/F，K=(J+L)/F。F、J 或 Q 被修改后，G/H/I/K 会即时刷新。
+            <b>计算口径：</b>导入后数字统一四舍五入为 0 位。G=(L+Q)/F；海外仓 H=MAX(0,60×F−L−Q)；供应商仓 H=MIN(V,MAX(0,105×F−L−Q))，其中 V 为上传表格 O 列“可发”。I=(H+L+Q)/F，K=(J+L+Q)/F。F、J 或 Q 被修改后，G/H/I/K 会即时刷新。
         </div>
         <button type="button" class="ship-btn ship-alert-action" onclick="downloadSavedReviewData()">下载已保存数据</button>
     </div>
@@ -909,11 +909,11 @@ function recalcRow(row) {
         : suggestedBase;
 
     row.raw[5] = F;
-    row.raw[6] = safeDiv(L, F);               // G = L / F
+    row.raw[6] = safeDiv(L + Q, F);           // G = (L + Q) / F
     row.raw[7] = Math.round(suggestedShipQty);
-    row.raw[8] = safeDiv(row.raw[7] + L, F);  // I = (H + L) / F
+    row.raw[8] = safeDiv(row.raw[7] + L + Q, F); // I = (H + L + Q) / F
     row.raw[9] = J;
-    row.raw[10] = safeDiv(J + L, F);          // K = (J + L) / F
+    row.raw[10] = safeDiv(J + L + Q, F);      // K = (J + L + Q) / F
     row.raw[12] = row.edited[12] ?? "";
     row.raw[16] = Q;
 
@@ -1353,7 +1353,7 @@ function buildReviewPayload() {
         savedAt: new Date().toISOString(),
         displayCols: "A:M,Q:V(V=O可发)",
         editableCols: "F,J,M,Q",
-        calculatedCols: "G=L/F,H_overseas=MAX(0,60*F-L-Q),H_supplier=MIN(V,MAX(0,105*F-L-Q)),I=(H+L)/F,K=(J+L)/F,V=O可发",
+        calculatedCols: "G=(L+Q)/F,H_overseas=MAX(0,60*F-L-Q),H_supplier=MIN(V,MAX(0,105*F-L-Q)),I=(H+L+Q)/F,K=(J+L+Q)/F,V=O可发",
         summary: {
             skuCount,
             supplierShipTotal,
