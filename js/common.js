@@ -5,7 +5,7 @@
 
 // ==================== 全局常量 ====================
 const AUTH_KEY = 'salesReport_auth';
-const API_BASE = 'http://192.168.50.105:5000';
+const API_BASE = '';
 const FRONT_PAGE = 'index.html';
 const PAGE_ACCESS_MAP = {
     'sales.html': 'sales',
