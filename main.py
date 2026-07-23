@@ -8,12 +8,14 @@ import math
 import os
 import sqlite3
 import sys
+import threading
+from collections import OrderedDict
 from urllib.parse import urlparse
 from datetime import datetime
 from typing import Optional
 from fastapi import FastAPI, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response
 import uvicorn
 
 # ================= 核心配置区 =================
@@ -115,6 +117,225 @@ ALLOWED_IMAGE_HOST_SUFFIXES = (
     ".feishu.cn",
     ".larksuite.com",
 )
+
+# 飞书附件图在表格中按行渲染时，浏览器会在很短时间内并发请求多张图片。
+# 附件下载接口对突发 QPS 很敏感；因此在服务端统一限速，避免每个页面再各自实现一套不一致的节流逻辑。
+IMAGE_FETCH_MIN_INTERVAL_SECONDS = 0.4
+IMAGE_FETCH_MAX_CONCURRENCY = 2
+IMAGE_FETCH_MAX_ATTEMPTS = 3
+IMAGE_FETCH_RETRY_BASE_SECONDS = 1.0
+IMAGE_FETCH_TIMEOUT = (5, 15)
+
+# 缓存的是已经鉴权下载成功的图片二进制，而不是飞书 URL。这样既能降低飞书请求量，
+# 也不会把带签名参数的 URL 暴露给浏览器缓存或日志。容量与条目数均受限，防止长期运行的容器无限占用内存。
+IMAGE_CACHE_TTL_SECONDS = 60 * 60
+IMAGE_CACHE_MAX_ENTRIES = 200
+IMAGE_CACHE_MAX_BYTES = 32 * 1024 * 1024
+
+# 上游限流或短暂失败后，先把失败结果短暂复用给同一张图的等待请求。
+# 否则一个页面的几十个相同/相近请求会在首次失败后立即再次冲击飞书。
+IMAGE_FAILURE_TTL_SECONDS = 5
+IMAGE_INFLIGHT_WAIT_SECONDS = 45
+
+_image_cache = OrderedDict()
+_image_cache_total_bytes = 0
+_image_failures = OrderedDict()
+_image_inflight = {}
+_image_state_lock = threading.RLock()
+_image_fetch_slot_lock = threading.Lock()
+_image_fetch_semaphore = threading.BoundedSemaphore(IMAGE_FETCH_MAX_CONCURRENCY)
+_image_next_fetch_at = 0.0
+
+
+def get_cached_image(url: str):
+    """Return a non-expired image and move it to the hot end of the LRU cache."""
+    now = time.monotonic()
+    with _image_state_lock:
+        cached = _image_cache.get(url)
+        if not cached:
+            return None
+
+        expires_at, content, content_type = cached
+        if expires_at <= now:
+            # Release the recorded bytes with the expired entry so the cache budget remains accurate.
+            global _image_cache_total_bytes
+            _image_cache.pop(url, None)
+            _image_cache_total_bytes -= len(content)
+            return None
+
+        _image_cache.move_to_end(url)
+        return content, content_type
+
+
+def cache_image(url: str, content: bytes, content_type: str):
+    """Store a successful image in a byte-bounded LRU cache for a limited time."""
+    global _image_cache_total_bytes
+    content_size = len(content)
+
+    # Very large source images can still be returned once, but must not monopolize process memory.
+    if content_size > IMAGE_CACHE_MAX_BYTES:
+        return
+
+    with _image_state_lock:
+        previous = _image_cache.pop(url, None)
+        if previous:
+            _image_cache_total_bytes -= len(previous[1])
+
+        while _image_cache and (
+            len(_image_cache) >= IMAGE_CACHE_MAX_ENTRIES
+            or _image_cache_total_bytes + content_size > IMAGE_CACHE_MAX_BYTES
+        ):
+            _, evicted = _image_cache.popitem(last=False)
+            _image_cache_total_bytes -= len(evicted[1])
+
+        _image_cache[url] = (
+            time.monotonic() + IMAGE_CACHE_TTL_SECONDS,
+            content,
+            content_type,
+        )
+        _image_cache_total_bytes += content_size
+
+
+def get_cached_image_failure(url: str):
+    """Return a brief failure cache entry to prevent failed request bursts from repeating."""
+    now = time.monotonic()
+    with _image_state_lock:
+        failure = _image_failures.get(url)
+        if not failure:
+            return None
+
+        expires_at, status_code, detail = failure
+        if expires_at <= now:
+            _image_failures.pop(url, None)
+            return None
+
+        _image_failures.move_to_end(url)
+        return status_code, detail
+
+
+def cache_image_failure(url: str, status_code: int, detail: str):
+    """Cache only short-lived failures, so a recovered upstream can be used promptly."""
+    with _image_state_lock:
+        _image_failures[url] = (
+            time.monotonic() + IMAGE_FAILURE_TTL_SECONDS,
+            status_code,
+            detail,
+        )
+        _image_failures.move_to_end(url)
+        while len(_image_failures) > IMAGE_CACHE_MAX_ENTRIES:
+            _image_failures.popitem(last=False)
+
+
+def claim_image_fetch(url: str):
+    """Elect one downloader per URL; matching requests wait for that downloader's result."""
+    with _image_state_lock:
+        event = _image_inflight.get(url)
+        if event:
+            return False, event
+
+        event = threading.Event()
+        _image_inflight[url] = event
+        return True, event
+
+
+def finish_image_fetch(url: str, event: threading.Event):
+    """Wake all waiters only after the elected downloader has stored its final result."""
+    with _image_state_lock:
+        if _image_inflight.get(url) is event:
+            _image_inflight.pop(url, None)
+            event.set()
+
+
+def wait_for_image_fetch_slot():
+    """Reserve a global start time so worker threads cannot create a Feishu QPS spike."""
+    global _image_next_fetch_at
+    with _image_fetch_slot_lock:
+        now = time.monotonic()
+        scheduled_at = max(now, _image_next_fetch_at)
+        _image_next_fetch_at = scheduled_at + IMAGE_FETCH_MIN_INTERVAL_SECONDS
+
+    delay = scheduled_at - now
+    if delay > 0:
+        time.sleep(delay)
+
+
+def get_feishu_error_code(response):
+    """Read a Feishu JSON error code when available; non-JSON errors have no code."""
+    try:
+        payload = response.json()
+    except (ValueError, requests.RequestException):
+        return None
+
+    return payload.get("code") if isinstance(payload, dict) else None
+
+
+def is_feishu_rate_limited(response) -> bool:
+    """Recognize both modern HTTP 429 and legacy HTTP 400 code 99991400 responses."""
+    return response.status_code == 429 or (
+        response.status_code == 400 and get_feishu_error_code(response) == 99991400
+    )
+
+
+def make_image_response(content: bytes, content_type: str):
+    """Keep browser caching private because the source endpoint is authenticated."""
+    return Response(
+        content=content,
+        media_type=content_type,
+        headers={"Cache-Control": f"private, max-age={IMAGE_CACHE_TTL_SECONDS}"},
+    )
+
+
+def fetch_feishu_image(url: str, headers: dict):
+    """Fetch one image with bounded concurrency, global QPS pacing, and limited rate-limit retries."""
+    host = urlparse(url).hostname or "unknown"
+
+    for attempt in range(IMAGE_FETCH_MAX_ATTEMPTS):
+        response = None
+        try:
+            # Concurrency alone is insufficient: fast requests can still exceed an API's per-second limit.
+            # The semaphore bounds slow sockets while the slot reservation bounds total request start rate.
+            with _image_fetch_semaphore:
+                wait_for_image_fetch_slot()
+                response = requests.get(url, headers=headers, timeout=IMAGE_FETCH_TIMEOUT)
+
+            if response.status_code == 200:
+                content = response.content
+                if not content:
+                    raise HTTPException(status_code=502, detail="飞书返回了空图片内容")
+                return content, response.headers.get("Content-Type", "image/png")
+
+            if is_feishu_rate_limited(response):
+                if attempt < IMAGE_FETCH_MAX_ATTEMPTS - 1:
+                    retry_delay = IMAGE_FETCH_RETRY_BASE_SECONDS * (2 ** attempt)
+                    print(
+                        "飞书图片请求触发限流，准备退避重试: "
+                        f"host={host}, attempt={attempt + 1}, retry_in={retry_delay}s"
+                    )
+                    time.sleep(retry_delay)
+                    continue
+
+                print(f"飞书图片请求持续限流: host={host}, attempts={IMAGE_FETCH_MAX_ATTEMPTS}")
+                raise HTTPException(
+                    status_code=429,
+                    detail="图片服务当前繁忙，请稍后刷新页面",
+                    headers={"Retry-After": str(IMAGE_FAILURE_TTL_SECONDS)},
+                )
+
+            error_code = get_feishu_error_code(response)
+            print(
+                "飞书拒绝返回图片: "
+                f"status={response.status_code}, code={error_code}, host={host}"
+            )
+            raise HTTPException(status_code=response.status_code, detail="飞书拒绝返回该图片素材")
+        except HTTPException:
+            raise
+        except requests.RequestException as exc:
+            # A Feishu attachment URL can carry temporary signature parameters, so never log the full URL.
+            print(f"飞书图片请求异常: host={host}, error_type={type(exc).__name__}")
+            raise HTTPException(status_code=502, detail="图片服务连接失败，请稍后重试")
+        finally:
+            if response is not None:
+                response.close()
 
 # ==========================================
 
@@ -1075,10 +1296,13 @@ def get_feishu_image(
     authorization: Optional[str] = Header(default=None)
 ):
     """
-    万能图片流式代理接口（需登录）。
-    支持两种认证方式：URL 参数 _token 或 Authorization Header。
+    飞书产品图代理接口（需登录）。
+
+    同一张图的并发请求会合并为一次飞书下载；成功图片短暂缓存，
+    以避免表格渲染时的突发请求触发飞书附件下载限流。
     """
-    # 手动校验（因为 img 标签无法设置 Header，所以额外支持 URL 传 token）
+    # img 标签不能设置 Authorization Header，因此保留 URL token 兼容现有前端。
+    # 认证仍发生在缓存命中前，避免未登录请求读取任何已缓存的业务图片。
     token = _token
     if not token and authorization and authorization.startswith("Bearer "):
         token = authorization[7:]
@@ -1088,33 +1312,62 @@ def get_feishu_image(
     if not user:
         raise HTTPException(status_code=401, detail="登录已过期，请重新登录")
 
-    # 新增：限制只能代理飞书 / Lark 图片地址
     url = validate_image_url(url)
 
-    feishu_token = get_feishu_token()
-    if not feishu_token:
-        raise HTTPException(status_code=500, detail="无法获取飞书 Token")
+    cached = get_cached_image(url)
+    if cached:
+        return make_image_response(*cached)
 
-    headers = {
-        "Authorization": f"Bearer {feishu_token}"
-    }
+    cached_failure = get_cached_image_failure(url)
+    if cached_failure:
+        status_code, detail = cached_failure
+        headers = {"Retry-After": str(IMAGE_FAILURE_TTL_SECONDS)} if status_code == 429 else None
+        raise HTTPException(status_code=status_code, detail=detail, headers=headers)
+
+    is_downloader, event = claim_image_fetch(url)
+    if not is_downloader:
+        # A matching request is already downloading this URL. Waiting is preferable to issuing
+        # another upstream request because dozens of table cells can refer to the same image.
+        if not event.wait(IMAGE_INFLIGHT_WAIT_SECONDS):
+            raise HTTPException(status_code=503, detail="图片加载排队超时，请稍后重试")
+
+        cached = get_cached_image(url)
+        if cached:
+            return make_image_response(*cached)
+
+        cached_failure = get_cached_image_failure(url)
+        if cached_failure:
+            status_code, detail = cached_failure
+            headers = {"Retry-After": str(IMAGE_FAILURE_TTL_SECONDS)} if status_code == 429 else None
+            raise HTTPException(status_code=status_code, detail=detail, headers=headers)
+
+        # The downloader always writes either a success or short-lived failure result. This
+        # fallback protects callers if an unexpected internal error bypasses that contract.
+        raise HTTPException(status_code=502, detail="图片下载未返回有效结果，请稍后重试")
 
     try:
-        res = requests.get(url, headers=headers, stream=True,timeout=15)
-        if res.status_code == 200:
-            return StreamingResponse(
-                res.raw,
-                media_type=res.headers.get("Content-Type", "image/png")
-            )
-        else:
-            print(f"飞书拒绝返回图片，状态码: {res.status_code}，详情: {res.text}")
-            raise HTTPException(status_code=res.status_code, detail="飞书拒绝返回该图片素材")
+        feishu_token = get_feishu_token()
+        if not feishu_token:
+            raise HTTPException(status_code=502, detail="无法获取飞书访问令牌")
 
-    except HTTPException as he:
-        raise he
-    except Exception as e:
-        print(f"图片代理中转发生底层错误: {e}")
-        raise HTTPException(status_code=500, detail=f"图片代理中转失败: {e}")
+        content, content_type = fetch_feishu_image(
+            url,
+            {"Authorization": f"Bearer {feishu_token}"},
+        )
+        cache_image(url, content, content_type)
+        return make_image_response(content, content_type)
+    except HTTPException as exc:
+        cache_image_failure(url, exc.status_code, exc.detail)
+        raise
+    except Exception as exc:
+        # Do not return internal exception text to users: it can contain request details or
+        # deployment paths. The type is enough to diagnose unexpected proxy failures in logs.
+        print(f"图片代理发生未预期异常: error_type={type(exc).__name__}")
+        detail = "图片服务暂时不可用，请稍后重试"
+        cache_image_failure(url, 502, detail)
+        raise HTTPException(status_code=502, detail=detail)
+    finally:
+        finish_image_fetch(url, event)
 
 
 if __name__ == "__main__":
