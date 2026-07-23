@@ -672,7 +672,9 @@ function showFinanceHistoryQueryStatus(message, type) {
 }
 
 function handleFinanceSort(field) {
-    if (FINANCE_TEXT_FIELDS.has(field) || FINANCE_FIELDS.indexOf(field) === -1) return;
+    // 可选字段只会在对应报表中显示；用当前可见字段判断，避免“海外仓仓租”
+    // 已渲染排序按钮却被旧版 25 列字段清单提前拦截。
+    if (FINANCE_TEXT_FIELDS.has(field) || getFinanceFieldsForReport(currentFinanceReport).indexOf(field) === -1) return;
 
     if (currentFinanceSort.field !== field) {
         currentFinanceSort = { field: field, direction: 'desc' };
