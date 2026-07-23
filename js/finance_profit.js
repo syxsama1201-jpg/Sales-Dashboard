@@ -13,9 +13,18 @@ const FINANCE_FIELDS = [
     '折扣活动金额$', '采购成本 $', '物流成本$', 'FBA fee$', '仓储费$', '品类', '资产收益率'
 ];
 
-// 页面展示、保存及后端数据库仍只使用 FINANCE_FIELDS 中的 25 个固定业务字段。
-// 允许模板在其后保留最多 5 个附加列，兼容不同版本导出的备注或辅助字段，
-// 但不把这些未定义字段带入保存载荷，避免悄然改变既有财务数据契约。
+// “海外仓仓租”只在上传文件明确包含该表头时展示。它插在“仓储费$”与“品类”之间，
+// 以同时兼容原有 25 列模板和新增此字段的模板，避免把旧模板的“品类”错读成仓租。
+const OVERSEAS_STORAGE_RENT_FIELD = '海外仓仓租';
+const OVERSEAS_STORAGE_RENT_INSERT_INDEX = FINANCE_FIELDS.indexOf('仓储费$') + 1;
+const FINANCE_FIELDS_WITH_OVERSEAS_STORAGE_RENT = [
+    ...FINANCE_FIELDS.slice(0, OVERSEAS_STORAGE_RENT_INSERT_INDEX),
+    OVERSEAS_STORAGE_RENT_FIELD,
+    ...FINANCE_FIELDS.slice(OVERSEAS_STORAGE_RENT_INSERT_INDEX)
+];
+
+// 无论新旧模板，文件总表头数都不能超过 30；未定义的其余附加列仅为兼容导出版本，
+// 不会进入页面、CSV 或保存载荷，以保持数据契约可追溯。
 const FINANCE_MAX_UPLOAD_HEADER_COLUMNS = 30;
 
 const FINANCE_TEXT_FIELDS = new Set(['父ASIN', '品名', '品类']);
@@ -25,7 +34,8 @@ const FINANCE_RATIO_FIELDS = new Set([
 ]);
 const FINANCE_CURRENCY_FIELDS = new Set([
     '销售额$', '客单价$', 'FBA fee', '利润额$', '退货金额$', '亚马逊扣费后金额$',
-    '广告费$', '折扣活动金额$', '采购成本 $', '物流成本$', 'FBA fee$', '仓储费$'
+    '广告费$', '折扣活动金额$', '采购成本 $', '物流成本$', 'FBA fee$', '仓储费$',
+    OVERSEAS_STORAGE_RENT_FIELD
 ]);
 
 let financeReports = [];
@@ -250,7 +260,8 @@ function stageFinancePayload(payload) {
         source_filename: payload.sourceFilename,
         row_count: payload.rows.length,
         uploaded_at: null,
-        uploaded_by: null
+        uploaded_by: null,
+        has_overseas_storage_rent: payload.hasOverseasStorageRent === true
     };
     financeRows = payload.rows.slice();
 
@@ -372,16 +383,28 @@ async function parseFinanceWorkbook(file) {
     const title = valueToFinanceText(grid[0] && grid[0][2]);
     const reportMonth = parseReportMonth(title);
     const headerRow = grid[1] || [];
-    const headers = FINANCE_FIELDS.map(function(_field, index) {
+    const normalizedHeaderRow = headerRow.map(normalizeHeader);
+    const uploadedOverseasStorageRentIndex = normalizedHeaderRow.indexOf(OVERSEAS_STORAGE_RENT_FIELD);
+    const hasOverseasStorageRent = uploadedOverseasStorageRentIndex !== -1;
+    if (hasOverseasStorageRent && uploadedOverseasStorageRentIndex !== OVERSEAS_STORAGE_RENT_INSERT_INDEX) {
+        throw new Error(
+            '“' + OVERSEAS_STORAGE_RENT_FIELD + '”应位于“仓储费$”与“品类”之间'
+        );
+    }
+
+    const uploadedFields = hasOverseasStorageRent
+        ? FINANCE_FIELDS_WITH_OVERSEAS_STORAGE_RENT
+        : FINANCE_FIELDS;
+    const headers = uploadedFields.map(function(_field, index) {
         return normalizeHeader(headerRow[index]);
     });
 
-    const badHeaderIndex = FINANCE_FIELDS.findIndex(function(field, index) {
+    const badHeaderIndex = uploadedFields.findIndex(function(field, index) {
         return headers[index] !== field;
     });
     if (badHeaderIndex !== -1) {
         throw new Error(
-            '第 ' + (badHeaderIndex + 1) + ' 列表头应为“' + FINANCE_FIELDS[badHeaderIndex] +
+            '第 ' + (badHeaderIndex + 1) + ' 列表头应为“' + uploadedFields[badHeaderIndex] +
             '”，实际为“' + (headers[badHeaderIndex] || '空') + '”'
         );
     }
@@ -392,13 +415,13 @@ async function parseFinanceWorkbook(file) {
     const rows = [];
     const seenParentAsins = new Set();
     grid.slice(2).forEach(function(sourceRow, dataIndex) {
-        const values = FINANCE_FIELDS.map(function(_field, index) {
+        const values = uploadedFields.map(function(_field, index) {
             return sourceRow ? sourceRow[index] : null;
         });
         if (values.every(isBlankExcelValue)) return;
 
         const row = {};
-        FINANCE_FIELDS.forEach(function(field, index) {
+        uploadedFields.forEach(function(field, index) {
             row[field] = values[index];
         });
 
@@ -423,7 +446,8 @@ async function parseFinanceWorkbook(file) {
         reportMonth: reportMonth,
         title: title,
         sourceFilename: file.name,
-        headers: FINANCE_FIELDS.slice(),
+        headers: uploadedFields.slice(),
+        hasOverseasStorageRent: hasOverseasStorageRent,
         rows: rows
     };
 }
@@ -446,6 +470,23 @@ function normalizeHeader(value) {
 
 function isBlankExcelValue(value) {
     return value === undefined || value === null || String(value).trim() === '';
+}
+
+function getFinanceFieldsForReport(report) {
+    return report && report.has_overseas_storage_rent
+        ? FINANCE_FIELDS_WITH_OVERSEAS_STORAGE_RENT
+        : FINANCE_FIELDS;
+}
+
+function getFinanceFieldsForHistory(rows) {
+    // 历史表跨月展示：只要查询范围内任一已归档报表含此列，就展示该列，
+    // 其余月份保留空值，避免在同一张跨月表中出现前后列数不一致。
+    const hasOverseasStorageRent = rows.some(function(row) {
+        return row.has_overseas_storage_rent === true;
+    });
+    return hasOverseasStorageRent
+        ? FINANCE_FIELDS_WITH_OVERSEAS_STORAGE_RENT
+        : FINANCE_FIELDS;
 }
 
 // ==================== 卡片与表格 ====================
@@ -565,6 +606,7 @@ function renderFinanceHistoryResults(rows) {
     const thead = document.getElementById('financeHistoryTableHead');
     const tbody = document.getElementById('financeHistoryTableBody');
     const count = document.getElementById('financeHistoryResultCount');
+    const fields = getFinanceFieldsForHistory(rows);
     results.hidden = false;
     thead.innerHTML = '';
     tbody.innerHTML = '';
@@ -574,7 +616,7 @@ function renderFinanceHistoryResults(rows) {
     monthHeader.className = 'finance-history-time-col';
     monthHeader.textContent = '时间';
     headerRow.appendChild(monthHeader);
-    FINANCE_FIELDS.forEach(function(field) {
+    fields.forEach(function(field) {
         const th = document.createElement('th');
         th.textContent = field;
         headerRow.appendChild(th);
@@ -584,7 +626,7 @@ function renderFinanceHistoryResults(rows) {
     if (!rows.length) {
         const tr = document.createElement('tr');
         const td = document.createElement('td');
-        td.colSpan = FINANCE_FIELDS.length + 1;
+        td.colSpan = fields.length + 1;
         td.className = 'finance-history-empty-cell';
         td.textContent = '暂无已归档的财务报表';
         tr.appendChild(td);
@@ -604,12 +646,12 @@ function renderFinanceHistoryResults(rows) {
 
         if (!row.has_data) {
             const emptyCell = document.createElement('td');
-            emptyCell.colSpan = FINANCE_FIELDS.length;
+            emptyCell.colSpan = fields.length;
             emptyCell.className = 'finance-history-no-data-cell';
             emptyCell.textContent = '无数据';
             tr.appendChild(emptyCell);
         } else {
-            FINANCE_FIELDS.forEach(function(field) {
+            fields.forEach(function(field) {
                 const td = document.createElement('td');
                 td.textContent = formatFinanceCell(field, row[field]);
                 if (FINANCE_TEXT_FIELDS.has(field)) td.title = valueToFinanceText(row[field]);
@@ -660,8 +702,12 @@ function updateFinanceSortIndicators() {
     });
 
     if (!currentFinanceSort.field || currentFinanceSort.direction === 'none') return;
-    const fieldIndex = FINANCE_FIELDS.indexOf(currentFinanceSort.field);
-    const icon = document.getElementById('finance-sort-icon-' + fieldIndex);
+    const activeHeader = Array.from(
+        document.querySelectorAll('.finance-profit-table th[data-finance-sort-field]')
+    ).find(function(th) {
+        return th.getAttribute('data-finance-sort-field') === currentFinanceSort.field;
+    });
+    const icon = activeHeader && activeHeader.querySelector('.sort-icon');
     if (icon) {
         icon.className = 'sort-icon finance-sort-icon ' +
             (currentFinanceSort.direction === 'asc' ? 'sort-asc' : 'sort-desc');
@@ -736,14 +782,55 @@ function applyFinanceFilter() {
     document.getElementById('toolbar-total-count').textContent = '共 ' + visibleFinanceRows.length + ' 条';
 }
 
+function renderFinanceTableHeader(fields) {
+    const thead = document.getElementById('financeTableHead');
+    const fieldSignature = fields.join('\u001f');
+    if (thead.dataset.fieldSignature === fieldSignature) return;
+
+    thead.innerHTML = '';
+    const tr = document.createElement('tr');
+    fields.forEach(function(field, index) {
+        const th = document.createElement('th');
+        if (index === 0) th.className = 'finance-sticky-col-1';
+        if (index === 1) th.className = 'finance-sticky-col-2';
+
+        if (FINANCE_TEXT_FIELDS.has(field)) {
+            th.textContent = field;
+        } else {
+            th.setAttribute('data-finance-sort-field', field);
+            th.setAttribute('aria-sort', 'none');
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'finance-sort-button';
+            button.append(document.createTextNode(field + ' '));
+            const icon = document.createElement('span');
+            icon.className = 'sort-icon sort-none finance-sort-icon';
+            button.appendChild(icon);
+            button.addEventListener('click', function() {
+                handleFinanceSort(field);
+            });
+            th.appendChild(button);
+        }
+        tr.appendChild(th);
+    });
+    thead.appendChild(tr);
+    thead.dataset.fieldSignature = fieldSignature;
+
+    // 更换新旧模板时会重建表头，旧拖拽手柄随 DOM 一同移除，必须重新初始化。
+    financeColumnResizeInitialized = false;
+    updateFinanceSortIndicators();
+}
+
 function renderFinanceTable(rows) {
+    const fields = getFinanceFieldsForReport(currentFinanceReport);
+    renderFinanceTableHeader(fields);
     const tbody = document.getElementById('financeTableBody');
     tbody.innerHTML = '';
 
     if (!rows.length) {
         const tr = document.createElement('tr');
         const td = document.createElement('td');
-        td.colSpan = FINANCE_FIELDS.length;
+        td.colSpan = fields.length;
         td.className = 'finance-empty-cell';
         td.textContent = financeRows.length ? '没有匹配的记录' : '尚未上传财务利润表';
         tr.appendChild(td);
@@ -751,7 +838,7 @@ function renderFinanceTable(rows) {
     } else {
         rows.forEach(function(row) {
             const tr = document.createElement('tr');
-            FINANCE_FIELDS.forEach(function(field, index) {
+            fields.forEach(function(field, index) {
                 const td = document.createElement('td');
                 if (index === 0) td.className = 'finance-sticky-col-1';
                 if (index === 1) td.className = 'finance-sticky-col-2';
@@ -817,9 +904,10 @@ function downloadFinanceCSV() {
         return;
     }
 
-    const lines = [FINANCE_FIELDS.map(csvEscape).join(',')];
+    const fields = getFinanceFieldsForReport(currentFinanceReport);
+    const lines = [fields.map(csvEscape).join(',')];
     visibleFinanceRows.forEach(function(row) {
-        lines.push(FINANCE_FIELDS.map(function(field) {
+        lines.push(fields.map(function(field) {
             // 下载口径与用户当前看到的表格保持一致：比例导出为百分号，金额保留美元符号，
             // 避免同一份报表在页面与 CSV 中出现两套难以对照的表现形式。
             return csvEscape(formatFinanceCell(field, row[field]));

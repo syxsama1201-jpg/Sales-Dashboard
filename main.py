@@ -67,6 +67,8 @@ FINANCE_DB_PATH = os.environ.get("FINANCE_DB_PATH", os.path.join(BASE_DIR, "fina
 
 # Excel 第二行的表头是导入契约。前端会先校验一次，后端仍需再次校验，
 # 因为不能把浏览器提交的数据默认视为可信。
+# “海外仓仓租”是可选字段：旧版 25 列模板不含它，新版模板将其放在“仓储费$”后。
+OVERSEAS_STORAGE_RENT_FIELD = "海外仓仓租"
 FINANCE_FIELD_DEFINITIONS = (
     ("父ASIN", "parent_asin", "text"),
     ("品名", "product_name", "text"),
@@ -91,10 +93,12 @@ FINANCE_FIELD_DEFINITIONS = (
     ("物流成本$", "logistics_cost", "number"),
     ("FBA fee$", "fba_fee_amount", "number"),
     ("仓储费$", "storage_fee", "number"),
+    (OVERSEAS_STORAGE_RENT_FIELD, "overseas_storage_rent", "number"),
     ("品类", "category", "text"),
     ("资产收益率", "asset_return_rate", "ratio"),
 )
 FINANCE_FIELDS = tuple(item[0] for item in FINANCE_FIELD_DEFINITIONS)
+FINANCE_LEGACY_FIELDS = tuple(field for field in FINANCE_FIELDS if field != OVERSEAS_STORAGE_RENT_FIELD)
 
 # ================= 登录认证配置 =================
 # token 签名密钥（请自行修改为随机字符串）
@@ -173,6 +177,7 @@ def init_finance_db():
                 title TEXT NOT NULL,
                 source_filename TEXT,
                 row_count INTEGER NOT NULL DEFAULT 0,
+                has_overseas_storage_rent INTEGER NOT NULL DEFAULT 0,
                 uploaded_at TEXT NOT NULL,
                 uploaded_by TEXT NOT NULL
             );
@@ -204,6 +209,7 @@ def init_finance_db():
                 logistics_cost REAL,
                 fba_fee_amount REAL,
                 storage_fee REAL,
+                overseas_storage_rent REAL,
                 category TEXT,
                 asset_return_rate REAL,
                 FOREIGN KEY (report_id) REFERENCES finance_reports(id) ON DELETE CASCADE,
@@ -215,6 +221,20 @@ def init_finance_db():
             ON finance_report_rows(parent_asin);
             """
         )
+        # CREATE TABLE IF NOT EXISTS 不会为已经存在的库补齐新字段。这里先查字段名
+        # 再执行幂等的 ALTER TABLE，使旧报表保留且默认标记为“不含海外仓仓租”。
+        report_columns = {row["name"] for row in conn.execute("PRAGMA table_info(finance_reports)")}
+        if "has_overseas_storage_rent" not in report_columns:
+            conn.execute(
+                "ALTER TABLE finance_reports "
+                "ADD COLUMN has_overseas_storage_rent INTEGER NOT NULL DEFAULT 0"
+            )
+
+        row_columns = {row["name"] for row in conn.execute("PRAGMA table_info(finance_report_rows)")}
+        if "overseas_storage_rent" not in row_columns:
+            conn.execute(
+                "ALTER TABLE finance_report_rows ADD COLUMN overseas_storage_rent REAL"
+            )
         conn.commit()
     finally:
         conn.close()
@@ -325,8 +345,8 @@ def normalize_finance_number(value, is_ratio=False):
     return number
 
 
-def normalize_finance_rows(rows):
-    """按固定25列表头校验导入行，并返回数据库字段顺序的元组。"""
+def normalize_finance_rows(rows, has_overseas_storage_rent: bool):
+    """按新旧模板校验导入行，并返回完整数据库字段顺序的元组。"""
     if not isinstance(rows, list) or not rows:
         raise HTTPException(status_code=400, detail="Excel 中没有可保存的数据行")
     if len(rows) > 20000:
@@ -338,7 +358,8 @@ def normalize_finance_rows(rows):
         if not isinstance(row, dict):
             raise HTTPException(status_code=400, detail=f"Excel 第 {index} 行格式不合法")
 
-        missing_fields = [field for field in FINANCE_FIELDS if field not in row]
+        required_fields = FINANCE_FIELDS if has_overseas_storage_rent else FINANCE_LEGACY_FIELDS
+        missing_fields = [field for field in required_fields if field not in row]
         if missing_fields:
             raise HTTPException(
                 status_code=400,
@@ -347,6 +368,11 @@ def normalize_finance_rows(rows):
 
         normalized = []
         for display_name, _column_name, field_type in FINANCE_FIELD_DEFINITIONS:
+            # 旧版 25 列文件没有该表头。入库时明确补 NULL，而不是把后续“品类”
+            # 错位读取为仓租；读取页面据报表标记决定是否展示此列。
+            if display_name == OVERSEAS_STORAGE_RENT_FIELD and not has_overseas_storage_rent:
+                normalized.append(None)
+                continue
             value = row.get(display_name)
             if field_type == "text":
                 value = normalize_finance_text(value)
@@ -651,7 +677,8 @@ def import_finance_profit(body: dict, user: str = Depends(get_current_user)):
         raise HTTPException(status_code=400, detail="请求体必须是 JSON 对象")
 
     headers = body.get("headers")
-    if headers != list(FINANCE_FIELDS):
+    has_overseas_storage_rent = headers == list(FINANCE_FIELDS)
+    if not has_overseas_storage_rent and headers != list(FINANCE_LEGACY_FIELDS):
         raise HTTPException(status_code=400, detail="Excel 表头与单款财务利润模板不一致")
 
     report_month = validate_finance_month(body.get("reportMonth"))
@@ -668,7 +695,10 @@ def import_finance_profit(body: dict, user: str = Depends(get_current_user)):
     if year_text not in title or not any(marker in title for marker in month_markers):
         raise HTTPException(status_code=400, detail="报表标题中的年月与上传月份不一致")
 
-    normalized_rows = normalize_finance_rows(body.get("rows"))
+    normalized_rows = normalize_finance_rows(
+        body.get("rows"),
+        has_overseas_storage_rent=has_overseas_storage_rent
+    )
     replace_existing = body.get("replaceExisting") is True
     uploaded_at = get_now_text()
 
@@ -698,20 +728,27 @@ def import_finance_profit(body: dict, user: str = Depends(get_current_user)):
             conn.execute(
                 """
                 UPDATE finance_reports
-                SET title = ?, source_filename = ?, row_count = ?, uploaded_at = ?, uploaded_by = ?
+                SET title = ?, source_filename = ?, row_count = ?, has_overseas_storage_rent = ?,
+                    uploaded_at = ?, uploaded_by = ?
                 WHERE id = ?
                 """,
-                (title, source_filename, len(normalized_rows), uploaded_at, user, report_id)
+                (
+                    title, source_filename, len(normalized_rows), int(has_overseas_storage_rent),
+                    uploaded_at, user, report_id
+                )
             )
             conn.execute("DELETE FROM finance_report_rows WHERE report_id = ?", (report_id,))
         else:
             cursor = conn.execute(
                 """
                 INSERT INTO finance_reports
-                    (report_month, title, source_filename, row_count, uploaded_at, uploaded_by)
-                VALUES (?, ?, ?, ?, ?, ?)
+                    (report_month, title, source_filename, row_count, has_overseas_storage_rent, uploaded_at, uploaded_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
-                (report_month, title, source_filename, len(normalized_rows), uploaded_at, user)
+                (
+                    report_month, title, source_filename, len(normalized_rows),
+                    int(has_overseas_storage_rent), uploaded_at, user
+                )
             )
             report_id = cursor.lastrowid
 
@@ -736,7 +773,8 @@ def import_finance_profit(body: dict, user: str = Depends(get_current_user)):
         "report_month": report_month,
         "row_count": len(normalized_rows),
         "uploaded_at": uploaded_at,
-        "uploaded_by": user
+        "uploaded_by": user,
+        "has_overseas_storage_rent": has_overseas_storage_rent
     }
 
 
@@ -748,7 +786,8 @@ def get_finance_profit_months(user: str = Depends(get_current_user)):
     try:
         rows = conn.execute(
             """
-            SELECT report_month, title, source_filename, row_count, uploaded_at, uploaded_by
+            SELECT report_month, title, source_filename, row_count, has_overseas_storage_rent,
+                   uploaded_at, uploaded_by
             FROM finance_reports
             ORDER BY report_month DESC
             """
@@ -782,6 +821,9 @@ def get_finance_profit_history(parent_asin: str, user: str = Depends(get_current
         range_row = conn.execute(
             "SELECT MIN(report_month) AS start_month, MAX(report_month) AS end_month FROM finance_reports"
         ).fetchone()
+        report_feature_rows = conn.execute(
+            "SELECT report_month, has_overseas_storage_rent FROM finance_reports"
+        ).fetchall()
         start_month = range_row["start_month"] if range_row else None
         end_month = range_row["end_month"] if range_row else None
         if not start_month or not end_month:
@@ -823,6 +865,10 @@ def get_finance_profit_history(parent_asin: str, user: str = Depends(get_current
         for row in matched_rows
         if row["matched_row_no"] is not None
     }
+    report_has_overseas_storage_rent = {
+        row["report_month"]: bool(row["has_overseas_storage_rent"])
+        for row in report_feature_rows
+    }
 
     start_year, start_month_number = (int(part) for part in start_month.split("-"))
     end_year, end_month_number = (int(part) for part in end_month.split("-"))
@@ -833,7 +879,8 @@ def get_finance_profit_history(parent_asin: str, user: str = Depends(get_current
         matched_row = row_by_month.get(report_month)
         item = {
             "report_month": report_month,
-            "has_data": matched_row is not None
+            "has_data": matched_row is not None,
+            "has_overseas_storage_rent": report_has_overseas_storage_rent.get(report_month, False)
         }
         if matched_row is not None:
             item.update({
@@ -906,6 +953,7 @@ def get_finance_profit(month: Optional[str] = None, user: str = Depends(get_curr
         "title": report["title"],
         "source_filename": report["source_filename"],
         "row_count": report["row_count"],
+        "has_overseas_storage_rent": bool(report["has_overseas_storage_rent"]),
         "uploaded_at": report["uploaded_at"],
         "uploaded_by": report["uploaded_by"]
     }

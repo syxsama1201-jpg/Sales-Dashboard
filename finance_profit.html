@@ -132,9 +132,9 @@
 
             <div class="table-container finance-profit-table-container">
                 <table class="finance-profit-table">
-                    <thead>
+                    <thead id="financeTableHead">
                         <tr>
-                            <!-- 表头固定在网页中，上传文件只能写入数据，不能改变页面字段结构。 -->
+                            <!-- 初始为旧版 25 列；脚本会根据当前报表是否含“海外仓仓租”动态重建表头。 -->
                             <th class="finance-sticky-col-1">父ASIN</th>
                             <th class="finance-sticky-col-2">品名</th>
                             <th data-finance-sort-field="销售额$"><button type="button" class="finance-sort-button" onclick="handleFinanceSort('销售额$')">销售额$ <span id="finance-sort-icon-2" class="sort-icon sort-none"></span></button></th>
