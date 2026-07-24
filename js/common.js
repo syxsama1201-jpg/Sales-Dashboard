@@ -14,6 +14,7 @@ const PAGE_ACCESS_MAP = {
     'finance_profit.html': 'finance',
     'vc_replenishment_model.html': 'replenishment',
     'shipment_audit.html': 'replenishment',
+    'replenishment_parent_forecast.html': 'replenishment',
     'history.html': 'history',
     'history_sales_query.html': 'history'
 };

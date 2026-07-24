@@ -873,6 +873,79 @@ def get_inventory_value_data(user: str = Depends(get_current_user)):
     return {"status": "success", "total": len(records), "data": records}
 
 
+@app.get("/api/replenishment/parent-overseas-inventory")
+def get_replenishment_parent_overseas_inventory(user: str = Depends(get_current_user)):
+    """
+    按父 ASIN 返回海外库存总量，供整款预测页使用。
+
+    该页面只需要库存数量，不应为了一个数量字段把库存金额表中的金额、国内仓等
+    敏感列暴露给仅具备发货权限的用户。因此在服务端读取完整源表后立即聚合，
+    响应中仅保留父 ASIN 和海外总量。
+    """
+    require_replenishment_permission(user)
+
+    if not INVENTORY_VALUE_APP_TOKEN or not INVENTORY_VALUE_TABLE_ID:
+        raise HTTPException(status_code=500, detail="库存金额表格配置缺失")
+
+    token = get_feishu_token()
+    if not token:
+        raise HTTPException(status_code=500, detail="无法获取飞书 Token")
+
+    # 必须分页读取，避免 SKU 数量超过飞书单页上限时少算同一父 ASIN 的库存。
+    records = get_bitable_data_all(
+        token,
+        table_id=INVENTORY_VALUE_TABLE_ID,
+        app_token=INVENTORY_VALUE_APP_TOKEN
+    )
+    if records is None:
+        raise HTTPException(status_code=500, detail="无法读取库存金额表格数据")
+
+    def cell_to_text(value):
+        """兼容飞书文本、附件式对象和列表字段，得到用于 ASIN/数值解析的文本。"""
+        if value is None:
+            return ""
+        if isinstance(value, list):
+            parts = []
+            for item in value:
+                item_text = cell_to_text(item)
+                if item_text:
+                    parts.append(item_text)
+            return ", ".join(parts)
+        if isinstance(value, dict):
+            return str(value.get("text") or value.get("name") or value.get("url") or "")
+        return str(value)
+
+    def cell_to_number(value):
+        """
+        库存源表可能把数量保存为带千分位的文本；这里只接受数字、小数点和负号，
+        非法或空值按 0 处理，使缺失 SKU 不会中断整款库存汇总。
+        """
+        text = cell_to_text(value).replace(",", "").strip()
+        cleaned = "".join(char for char in text if char.isdigit() or char in ".-")
+        try:
+            number = float(cleaned) if cleaned else 0.0
+        except ValueError:
+            return 0.0
+        return number if math.isfinite(number) else 0.0
+
+    totals_by_parent = {}
+    for record in records:
+        fields = record.get("fields") or {}
+        parent_asin = cell_to_text(fields.get("父ASIN")).strip().upper()
+        if not parent_asin:
+            continue
+        totals_by_parent[parent_asin] = (
+            totals_by_parent.get(parent_asin, 0.0) +
+            cell_to_number(fields.get("海外总量"))
+        )
+
+    data = [
+        {"parent_asin": parent_asin, "overseas_total": overseas_total}
+        for parent_asin, overseas_total in sorted(totals_by_parent.items())
+    ]
+    return {"status": "success", "total": len(data), "data": data}
+
+
 @app.get("/api/history")
 def get_history_data(user: str = Depends(get_current_user)):
     """获取飞书历史销量表格数据（需登录，自动翻页突破500条限制）"""

@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>备货模型 · 整款预测 - 控制面板</title>
+    <link rel="stylesheet" href="css/dashboard.css">
+    <style>
+        .parent-forecast-page .content-scrollable {
+            padding-top: 4px;
+        }
+
+        .parent-forecast-workspace {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+
+        .parent-forecast-search-panel {
+            width: min(560px, 100%);
+            margin: 18vh auto 0;
+        }
+
+        .parent-forecast-search-panel.has-result {
+            margin-top: 18px;
+            margin-bottom: 14px;
+        }
+
+        .parent-forecast-search-panel .search-group {
+            width: 100%;
+            height: 32px;
+        }
+
+        .parent-forecast-search-label {
+            width: 96px;
+            flex-shrink: 0;
+            padding: 0 10px;
+            border-right: 1px solid #e5e6eb;
+            color: #4e5969;
+            font-size: 12px;
+            line-height: 30px;
+            text-align: center;
+        }
+
+        .parent-forecast-search-panel input {
+            flex: 1;
+            min-width: 0;
+            padding: 0 10px;
+            border: 0;
+            color: #1d2129;
+            font-size: 12px;
+        }
+
+        .parent-forecast-search-panel input:focus {
+            outline: none;
+        }
+
+        .parent-forecast-message {
+            width: min(560px, 100%);
+            margin: 12px auto 0;
+            padding: 10px 12px;
+            border: 1px solid #e5e6eb;
+            border-radius: 2px;
+            background: #fff;
+            color: #86909c;
+            font-size: 12px;
+            text-align: center;
+        }
+
+        .parent-forecast-message.hidden,
+        .parent-forecast-results.hidden {
+            display: none;
+        }
+
+        .parent-forecast-results {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            width: 100%;
+        }
+
+        .parent-forecast-table-block {
+            overflow: hidden;
+            border: 1px solid #e5e6eb;
+            border-radius: 2px;
+            background: #fff;
+        }
+
+        .parent-forecast-table-title {
+            padding: 10px 12px;
+            border-bottom: 1px solid #e5e6eb;
+            color: #1d2129;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .parent-forecast-table-wrap {
+            overflow-x: auto;
+        }
+
+        .parent-forecast-table {
+            min-width: 960px;
+        }
+
+        .parent-forecast-table th,
+        .parent-forecast-table td {
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        .parent-forecast-table th {
+            position: static;
+        }
+
+        .parent-forecast-table .recommendation-cell,
+        .parent-forecast-table .recommendation-head {
+            background: #fff9e6;
+        }
+
+        .parent-forecast-daily-input {
+            width: 104px;
+            padding: 3px 6px;
+            border: 1px solid #c9cdd4;
+            border-radius: 2px;
+            color: #1d2129;
+            font: inherit;
+            text-align: right;
+        }
+
+        .parent-forecast-daily-input:focus {
+            border-color: #165dff;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(22, 93, 255, 0.1);
+        }
+
+        .parent-forecast-history-table {
+            min-width: 920px;
+        }
+
+        .parent-forecast-history-table th,
+        .parent-forecast-history-table td {
+            text-align: right;
+            white-space: nowrap;
+        }
+
+        .parent-forecast-history-table th:first-child,
+        .parent-forecast-history-table td:first-child {
+            width: 90px;
+            min-width: 90px;
+            text-align: left;
+        }
+
+        @media (max-width: 760px) {
+            .parent-forecast-search-panel {
+                margin-top: 12vh;
+            }
+        }
+    </style>
+</head>
+<body class="parent-forecast-page">
+    <div id="loginOverlay" class="login-overlay hidden">
+        <div class="login-card">
+            <div class="login-title">备货模型 · 整款预测</div>
+            <div class="login-subtitle">请输入账号密码登录</div>
+            <input type="text" id="loginUser" class="login-input" placeholder="用户名" autocomplete="username">
+            <input type="password" id="loginPass" class="login-input" placeholder="密码" autocomplete="current-password">
+            <button id="loginBtn" class="login-btn" onclick="doLogin()">登 录</button>
+            <div id="loginError" class="login-error"></div>
+            <div class="login-footer">Acme Zone 数据看板</div>
+        </div>
+    </div>
+
+    <div class="sidebar" data-active-page="replenishment"></div>
+
+    <div class="main-container">
+        <header class="top-header">
+            <div class="header-tabs">
+                <a class="tab" href="vc_replenishment_model.html">备货模型 · 总量预测<div class="close-icon-placeholder"></div></a>
+                <a class="tab" href="shipment_audit.html">本周发货审核<div class="close-icon-placeholder"></div></a>
+                <div class="tab active">备货模型 · 整款预测<div class="close-icon-placeholder"></div></div>
+            </div>
+            <div class="header-right">
+                <div class="user-avatar-placeholder"></div>
+            </div>
+        </header>
+
+        <main class="content-scrollable">
+            <div class="page-title-row">
+                <div class="title-group">
+                    <h2>备货模型 · 整款预测<div style="width:16px;height:16px;background:#165dff;border-radius:2px;display:inline-block;vertical-align:middle;"></div></h2>
+                    <div class="update-time" style="margin-left: 60px;">更新时间 <span id="target-time"></span></div>
+                </div>
+            </div>
+
+            <div class="parent-forecast-workspace">
+                <div id="parentForecastSearchPanel" class="parent-forecast-search-panel">
+                    <div class="search-group">
+                        <label class="parent-forecast-search-label" for="parentForecastInput">父 ASIN</label>
+                        <input id="parentForecastInput" type="text" placeholder="输入父 ASIN" autocomplete="off" spellcheck="false" oninput="handleParentForecastInput(event)">
+                    </div>
+                </div>
+
+                <div id="parentForecastMessage" class="parent-forecast-message hidden" role="status"></div>
+
+                <section id="parentForecastResults" class="parent-forecast-results hidden">
+                    <div class="parent-forecast-table-block">
+                        <div class="parent-forecast-table-title">推测表</div>
+                        <div class="parent-forecast-table-wrap">
+                            <table class="parent-forecast-table">
+                                <thead id="parentForecastTableHead"></thead>
+                                <tbody id="parentForecastTableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="parent-forecast-table-block">
+                        <div class="parent-forecast-table-title">父 ASIN 历史销量</div>
+                        <div class="parent-forecast-table-wrap">
+                            <table class="parent-forecast-history-table">
+                                <thead id="parentForecastHistoryHead"></thead>
+                                <tbody id="parentForecastHistoryBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <script src="js/common.js"></script>
+    <script src="js/replenishment_parent_forecast.js"></script>
+    <script>
+        window.addEventListener('load', startTimeDisplay);
+    </script>
+</body>
+</html>
