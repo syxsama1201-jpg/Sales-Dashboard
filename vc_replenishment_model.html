@@ -361,7 +361,7 @@
 
             <div style="display:flex;justify-content:flex-end;align-items:center;gap:10px;margin-top:10px;">
                 <span id="fc-fetch-status" style="font-size:11px;color:#86909c;display:none;"></span>
-                <button onclick="fetchForecastFromFeishu()" class="model-btn-primary" style="background:var(--mc-green);" id="btn-fetch-fc">🔄 从飞书获取预测</button>
+                <button onclick="fetchForecastFromNas()" class="model-btn-primary" style="background:var(--mc-green);" id="btn-fetch-fc">🔄 从 NAS 获取预测</button>
                 <button onclick="rebuild()" class="model-btn-primary">更新计算 →</button>
             </div>
         </div>
@@ -488,14 +488,15 @@ function getSig(days, ymin, ymax){
 }
 
 // ==================== 预测月份自动更新 ====================
-// 根据当前日期自动生成未来6个月的标签（如 2026-06, 2026-07, ...）
-function updateForecastLabels() {
+// 页面初始时根据当前日期生成标签；NAS 返回数据后改用文件中的实际年月，避免数值错位。
+function updateForecastLabels(monthEntries) {
     var now = new Date();
     var year = now.getFullYear();
     var month = now.getMonth() + 1; // JS月份 0-11 → 1-12
     for (var i = 0; i < 6; i++) {
-        var m = month + i;
-        var y = year;
+        var entry = monthEntries && monthEntries[i];
+        var m = entry ? entry.month : month + i;
+        var y = entry ? entry.year : year;
         if (m > 12) { m -= 12; y++; }
         var lbl = document.getElementById('fc-lbl-' + i);
         if (lbl) lbl.textContent = y + '-' + (m < 10 ? '0' + m : m);
@@ -551,10 +552,9 @@ function saveForecastValues() {
     } catch(e) {}
 }
 
-// ==================== 从飞书历史表格拉取预测值 ====================
-// 读取 /api/history 返回的第一行的最后 6 个字段，填入预测输入框。
-// 飞书表以当前排序后的首行作为总量预测来源，不再依赖该行必须命名为 targetAllSku。
-function fetchForecastFromFeishu() {
+// ==================== 从 NAS 预测文件拉取预测值 ====================
+// 后端只返回 data 工作表第 2 行中的年月和值，浏览器不接触 NAS 路径或 Excel 文件内容。
+function fetchForecastFromNas() {
     var token = getToken();
     if (!token) {
         goToFrontPage('login');
@@ -566,10 +566,10 @@ function fetchForecastFromFeishu() {
     btnEl.disabled = true;
     btnEl.textContent = '⏳ 获取中...';
     statusEl.style.display = 'inline';
-    statusEl.textContent = '正在从飞书拉取预测数据...';
+    statusEl.textContent = '正在从 NAS 读取预测数据...';
     statusEl.style.color = '#86909c';
 
-    fetch(API_BASE + '/api/history', {
+    fetch(API_BASE + '/api/replenishment/forecast', {
         headers: { 'Authorization': 'Bearer ' + token }
     }).then(function(response) {
         if (response.status === 401) {
@@ -583,29 +583,17 @@ function fetchForecastFromFeishu() {
         }
         return response.json();
     }).then(function(result) {
-        if (result.status !== 'success' || !result.data || result.data.length === 0) {
+        if (result.status !== 'success' || !Array.isArray(result.data) || result.data.length === 0) {
             throw new Error('no_data');
         }
 
-        // 飞书接口按当前表格/视图的排序顺序返回记录。业务规则明确指定首行是预测总量，
-        // 因此直接读取第一条记录，避免行名称变更后页面无法同步已存在的预测数据。
-        var targetRecord = result.data[0] && result.data[0].fields;
-        if (!targetRecord) {
-            throw new Error('no_data');
-        }
-
-        // 提取所有形如 "XX年X月" 的字段，按年月排序后取最后 6 个
-        var monthEntries = [];
-        Object.keys(targetRecord).forEach(function(key) {
-            var match = key.match(/^(\d{2})年(\d{1,2})月$/);
-            if (match) {
-                var year = parseInt(match[1]) + 2000; // 22→2022, 26→2026
-                var month = parseInt(match[2]);
-                var val = targetRecord[key];
-                if (val !== null && val !== undefined && val !== '') {
-                    monthEntries.push({ year: year, month: month, value: parseFloat(val) || 0 });
-                }
-            }
+        // 后端已根据 Excel 第 1 行表头解析年月、读取第 2 行数值；前端只做契约校验和排序，
+        // 避免再解析中文表头而产生与服务端不一致的年月规则。
+        var monthEntries = result.data.filter(function(item) {
+            return item && Number.isInteger(item.year) && Number.isInteger(item.month) &&
+                item.month >= 1 && item.month <= 12 && Number.isFinite(Number(item.value));
+        }).map(function(item) {
+            return { year: item.year, month: item.month, value: Number(item.value) };
         });
 
         // 按年月升序排序
@@ -627,31 +615,31 @@ function fetchForecastFromFeishu() {
         // 存入 localStorage
         saveForecastValues();
 
-        // 更新月份标签（确保与飞书数据匹配）
-        updateForecastLabels();
+        // 使用 NAS 文件实际表头更新标签，避免预测值与页面显示月份错位。
+        updateForecastLabels(last6);
 
         // 触发重算
         rebuild();
 
-        statusEl.textContent = '✓ 预测数据已从飞书同步 (' + last6.length + '个月)';
+        statusEl.textContent = '✓ 预测数据已从 NAS 同步 (' + last6.length + '个月)';
         statusEl.style.color = '#00b42a';
     }).catch(function(error) {
         var msg = '获取预测数据失败';
         if (error.message === 'unauthorized') {
             msg = '登录已过期，请刷新页面重新登录';
         } else if (error.message === 'no_data') {
-            msg = '飞书表格返回空数据';
+            msg = 'NAS 预测文件返回空数据';
         } else if (error.message === 'too_few') {
-            msg = '飞书表格中数据列不足6列，请确认预测数据已上传';
+            msg = 'NAS 预测文件中有效月份不足6列，请确认第 2 行预测数据';
         } else if (error) {
             msg = '获取失败: ' + (error.message || '网络错误');
         }
         statusEl.textContent = '✗ ' + msg;
         statusEl.style.color = '#e85555';
-        console.error('fetchForecastFromFeishu:', error);
+        console.error('fetchForecastFromNas:', error);
     }).finally(function() {
         btnEl.disabled = false;
-        btnEl.textContent = '🔄 从飞书获取预测';
+        btnEl.textContent = '🔄 从 NAS 获取预测';
     });
 }
 

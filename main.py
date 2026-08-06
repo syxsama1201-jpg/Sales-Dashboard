@@ -67,6 +67,16 @@ SHIPMENT_DB_PATH = os.environ.get("SHIPMENT_DB_PATH", "./shipment_current.db")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 FINANCE_DB_PATH = os.environ.get("FINANCE_DB_PATH", os.path.join(BASE_DIR, "finance_profit.db"))
 
+# 总量备货模型只读取容器内固定挂载路径，不能接受前端传入的文件名或路径，
+# 否则拥有补货权限的用户可能借接口读取挂载目录中的其他 NAS 文件。
+REPLENISHMENT_FORECAST_XLSX_PATH = os.environ.get(
+    "REPLENISHMENT_FORECAST_XLSX_PATH",
+    "/app/data/salse_data.xlsx"
+)
+REPLENISHMENT_FORECAST_SHEET_NAME = "data"
+REPLENISHMENT_FORECAST_HEADER_ROW = 1
+REPLENISHMENT_FORECAST_DATA_ROW = 2
+
 # Excel 第二行的表头是导入契约。前端会先校验一次，后端仍需再次校验，
 # 因为不能把浏览器提交的数据默认视为可信。
 # “海外仓仓租”是可选字段：旧版 25 列模板不含它，新版模板将其放在“仓储费$”后。
@@ -871,6 +881,135 @@ def get_inventory_value_data(user: str = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail="无法读取库存金额表格数据")
 
     return {"status": "success", "total": len(records), "data": records}
+
+
+def parse_replenishment_forecast_month(value):
+    """
+    解析 NAS 预测文件的年月表头，例如“2027年1月”。
+
+    Excel 的前三列是产品标识而非预测月份，因此只返回严格匹配的四位年份月份；
+    非月份列返回 None，以避免品名或 ASIN 被误当作预测字段。
+    """
+    text = str(value or "").strip()
+    if not text.endswith("月") or "年" not in text:
+        return None
+
+    year_text, separator, month_text = text[:-1].partition("年")
+    if not separator or not year_text.isdigit() or not month_text.isdigit():
+        return None
+
+    year = int(year_text)
+    month = int(month_text)
+    if len(year_text) != 4 or month < 1 or month > 12:
+        return None
+    return year, month
+
+
+def normalize_replenishment_forecast_value(value, month_label: str) -> float:
+    """
+    将 Excel 的预测单元格规范为有限数值。
+
+    预测模型将空值、文本错误和未缓存的公式结果视为文件问题而非 0，避免页面在
+    数据不完整时静默计算出错误的补货建议。千分位文本保留兼容，便于人工维护文件。
+    """
+    if value is None or isinstance(value, bool):
+        raise HTTPException(status_code=500, detail=f"预测文件中的 {month_label} 缺少有效数值")
+
+    text = str(value).replace(",", "").strip()
+    try:
+        number = float(text)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=500, detail=f"预测文件中的 {month_label} 不是有效数值")
+
+    if not math.isfinite(number):
+        raise HTTPException(status_code=500, detail=f"预测文件中的 {month_label} 不是有限数值")
+    return number
+
+
+@app.get("/api/replenishment/forecast")
+def get_replenishment_forecast(user: str = Depends(get_current_user)):
+    """
+    从 NAS 挂载的预测 Excel 读取总量预测。
+
+    文件约定为 data 工作表第 1 行年月表头、第 2 行预测数据。接口仅返回年月和值，
+    不暴露品名、父/子 ASIN 或宿主机文件路径给浏览器。
+    """
+    require_replenishment_permission(user)
+
+    if not os.path.isfile(REPLENISHMENT_FORECAST_XLSX_PATH):
+        raise HTTPException(status_code=500, detail="NAS 预测文件不存在或未挂载到 API 容器")
+
+    try:
+        from openpyxl import load_workbook
+    except ImportError:
+        # 延迟导入使未安装 openpyxl 的旧部署仍可启动，并在实际使用本功能时给出明确错误。
+        raise HTTPException(status_code=500, detail="API 容器缺少 openpyxl，无法读取 NAS 预测文件")
+
+    workbook = None
+    try:
+        # data_only=True 读取 Excel 已计算的公式结果，避免把公式字符串传给补货模型。
+        workbook = load_workbook(
+            REPLENISHMENT_FORECAST_XLSX_PATH,
+            read_only=True,
+            data_only=True
+        )
+        if REPLENISHMENT_FORECAST_SHEET_NAME not in workbook.sheetnames:
+            raise HTTPException(status_code=500, detail="NAS 预测文件缺少 data 工作表")
+
+        worksheet = workbook[REPLENISHMENT_FORECAST_SHEET_NAME]
+        header_values = next(
+            worksheet.iter_rows(
+                min_row=REPLENISHMENT_FORECAST_HEADER_ROW,
+                max_row=REPLENISHMENT_FORECAST_HEADER_ROW,
+                values_only=True
+            ),
+            ()
+        )
+        data_values = next(
+            worksheet.iter_rows(
+                min_row=REPLENISHMENT_FORECAST_DATA_ROW,
+                max_row=REPLENISHMENT_FORECAST_DATA_ROW,
+                values_only=True
+            ),
+            ()
+        )
+        if not header_values or not data_values:
+            raise HTTPException(status_code=500, detail="NAS 预测文件缺少表头或第 2 行预测数据")
+
+        months = []
+        seen_months = set()
+        for header, value in zip(header_values, data_values):
+            parsed_month = parse_replenishment_forecast_month(header)
+            if not parsed_month:
+                continue
+
+            year, month = parsed_month
+            month_key = (year, month)
+            if month_key in seen_months:
+                raise HTTPException(status_code=500, detail=f"NAS 预测文件包含重复月份：{year}年{month}月")
+            seen_months.add(month_key)
+            months.append({
+                "year": year,
+                "month": month,
+                "value": normalize_replenishment_forecast_value(value, f"{year}年{month}月")
+            })
+
+        months.sort(key=lambda item: (item["year"], item["month"]))
+        if len(months) < 6:
+            raise HTTPException(status_code=500, detail="NAS 预测文件中有效月份不足 6 个")
+
+        return {"status": "success", "total": len(months), "data": months}
+    except HTTPException:
+        raise
+    except PermissionError:
+        raise HTTPException(status_code=500, detail="API 容器没有读取 NAS 预测文件的权限")
+    except Exception as exc:
+        # 不把异常详情或 NAS 实际路径返回给浏览器，避免暴露服务器目录结构。
+        print(f"读取 NAS 预测文件失败: error_type={type(exc).__name__}")
+        raise HTTPException(status_code=500, detail="无法读取 NAS 预测文件")
+    finally:
+        if workbook is not None:
+            workbook.close()
 
 
 @app.get("/api/replenishment/parent-overseas-inventory")
