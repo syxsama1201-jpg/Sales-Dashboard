@@ -8,24 +8,84 @@
  */
 
 // ==================== 月份列定义 ====================
-// 显示名称 → 飞书字段名（如飞书字段名与显示名一致，可不用修改）
-// 如需修改飞书字段名映射，只需调整下方 MONTH_COLUMNS 中每项的 field 值
+// 月份字段由接口返回数据自动识别，兼容“26年1月”和“2026年1月”两种飞书列名。
+// 这样新增月份后无需手动维护年份列表，页面和 CSV 会使用同一份动态列定义。
 
-var MONTH_COLUMNS = (function() {
-    var cols = [];
-    var years = [22, 23, 24, 25, 26];
-    years.forEach(function(year) {
-        var endMonth = 12;
-        for (var m = 1; m <= endMonth; m++) {
-            var displayName = year + '年' + m + '月';
-            cols.push({
-                display: displayName,
-                field: displayName  // 飞书字段名，若不一致请修改此处
-            });
-        }
+// 月份列不能再固定写到某一年：飞书表会持续新增月份，固定列表会导致接口虽返回了
+// 新字段、页面和导出的 CSV 却完全看不到。数据加载后再根据实际返回字段构建列。
+var MONTH_COLUMNS = [];
+var MONTH_FIELD_PATTERN = /^(\d{2}|\d{4})年(0?[1-9]|1[0-2])月$/;
+
+function getMonthFieldInfo(fieldName) {
+    var match = MONTH_FIELD_PATTERN.exec(String(fieldName || ''));
+    if (!match) return null;
+
+    var rawYear = match[1];
+    var year = Number(rawYear);
+    // 历史表同时使用过“26年1月”和“2026年1月”。短年份统一按 2000 年后解释，
+    // 仅用于排序和归并；读取时仍保留原始飞书字段名，避免改变既有数据映射。
+    if (rawYear.length === 2) year += 2000;
+
+    return {
+        year: year,
+        month: Number(match[2]),
+        isFullYear: rawYear.length === 4,
+        field: String(fieldName)
+    };
+}
+
+function buildMonthColumns(records) {
+    var columnsByMonth = {};
+
+    (records || []).forEach(function(record) {
+        var fields = record && record.fields;
+        if (!fields) return;
+
+        Object.keys(fields).forEach(function(fieldName) {
+            var info = getMonthFieldInfo(fieldName);
+            if (!info) return;
+
+            var key = info.year + '-' + String(info.month).padStart(2, '0');
+            if (!columnsByMonth[key]) {
+                columnsByMonth[key] = {
+                    year: info.year,
+                    month: info.month,
+                    fullYearField: '',
+                    shortYearField: ''
+                };
+            }
+
+            if (info.isFullYear) {
+                columnsByMonth[key].fullYearField = info.field;
+            } else {
+                columnsByMonth[key].shortYearField = info.field;
+            }
+        });
     });
-    return cols;
-})();
+
+    return Object.keys(columnsByMonth).map(function(key) {
+        return columnsByMonth[key];
+    }).sort(function(a, b) {
+        return a.year - b.year || a.month - b.month;
+    }).map(function(column) {
+        var fields = [column.fullYearField, column.shortYearField].filter(Boolean);
+        return {
+            // 同月双字段属于命名迁移兼容，而非两份销量；全年份字段优先，空值时回退短年份字段。
+            display: column.year + '年' + column.month + '月',
+            fields: fields
+        };
+    });
+}
+
+function getMonthColumnValue(fields, column) {
+    if (!fields || !column || !column.fields) return undefined;
+
+    for (var index = 0; index < column.fields.length; index++) {
+        var value = fields[column.fields[index]];
+        if (value !== undefined && value !== null && value !== '') return value;
+    }
+    return undefined;
+}
 
 // ==================== 产品字段映射 ====================
 // 历史表前置三列来自飞书字段。保留 ASIN 兜底，是为了兼容旧表尚未完全迁移时的子 ASIN 数据。
@@ -124,7 +184,9 @@ function fetchHistoryData() {
         return response.json();
     }).then(function(result) {
         if (result.status === 'success') {
-            globalRecords = result.data;
+            globalRecords = Array.isArray(result.data) ? result.data : [];
+            MONTH_COLUMNS = buildMonthColumns(globalRecords);
+            buildTableHeader();
             applyFilterAndSort();
         } else {
             console.error('获取历史销量数据失败:', result);
@@ -197,7 +259,7 @@ function renderTable(records) {
 
         // 各月份销量数据
         MONTH_COLUMNS.forEach(function(col) {
-            var val = f[col.field];
+            var val = getMonthColumnValue(f, col);
             if (val !== undefined && val !== null && val !== '') {
                 html += '<td class="col-month">' + val + '</td>';
             } else {

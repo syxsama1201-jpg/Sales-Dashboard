@@ -552,7 +552,8 @@ function saveForecastValues() {
 }
 
 // ==================== 从飞书历史表格拉取预测值 ====================
-// 读取 /api/history 中 targetAllSku 行的最后 6 个字段，填入预测输入框
+// 读取 /api/history 返回的第一行的最后 6 个字段，填入预测输入框。
+// 飞书表以当前排序后的首行作为总量预测来源，不再依赖该行必须命名为 targetAllSku。
 function fetchForecastFromFeishu() {
     var token = getToken();
     if (!token) {
@@ -586,17 +587,11 @@ function fetchForecastFromFeishu() {
             throw new Error('no_data');
         }
 
-        // 找 targetAllSku 行（ASIN 字段 === 'targetAllSku'）
-        var targetRecord = null;
-        for (var i = 0; i < result.data.length; i++) {
-            var f = result.data[i].fields;
-            if (f && f['ASIN'] === 'targetAllSku') {
-                targetRecord = f;
-                break;
-            }
-        }
+        // 飞书接口按当前表格/视图的排序顺序返回记录。业务规则明确指定首行是预测总量，
+        // 因此直接读取第一条记录，避免行名称变更后页面无法同步已存在的预测数据。
+        var targetRecord = result.data[0] && result.data[0].fields;
         if (!targetRecord) {
-            throw new Error('not_found');
+            throw new Error('no_data');
         }
 
         // 提取所有形如 "XX年X月" 的字段，按年月排序后取最后 6 个
@@ -644,8 +639,6 @@ function fetchForecastFromFeishu() {
         var msg = '获取预测数据失败';
         if (error.message === 'unauthorized') {
             msg = '登录已过期，请刷新页面重新登录';
-        } else if (error.message === 'not_found') {
-            msg = '未找到 targetAllSku 行，请确认飞书表格中包含该行';
         } else if (error.message === 'no_data') {
             msg = '飞书表格返回空数据';
         } else if (error.message === 'too_few') {
