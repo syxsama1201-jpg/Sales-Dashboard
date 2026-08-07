@@ -2,16 +2,14 @@
  * history.js — 历史销量数据专属逻辑
  * 依赖：common.js 必须先加载
  *
- * 数据来源：飞书多维表格《历史销量数据》
- * APP_TOKEN = "VSuPbf0usaGOUasEluUcWdFwnvg"
- * TABLE_ID  = "tbl2RWkEIMJ5fzJP"
+ * 数据来源：NAS 容器路径 /storage/sales_data.xlsx，由 /api/history 统一读取。
  */
 
 // ==================== 月份列定义 ====================
-// 月份字段由接口返回数据自动识别，兼容“26年1月”和“2026年1月”两种飞书列名。
+// 月份字段由接口返回数据自动识别，兼容“26年1月”和“2026年1月”两种历史列名。
 // 这样新增月份后无需手动维护年份列表，页面和 CSV 会使用同一份动态列定义。
 
-// 月份列不能再固定写到某一年：飞书表会持续新增月份，固定列表会导致接口虽返回了
+// 月份列不能再固定写到某一年：NAS 销量文件会持续新增月份，固定列表会导致接口虽返回了
 // 新字段、页面和导出的 CSV 却完全看不到。数据加载后再根据实际返回字段构建列。
 var MONTH_COLUMNS = [];
 var MONTH_FIELD_PATTERN = /^(\d{2}|\d{4})年(0?[1-9]|1[0-2])月$/;
@@ -23,7 +21,7 @@ function getMonthFieldInfo(fieldName) {
     var rawYear = match[1];
     var year = Number(rawYear);
     // 历史表同时使用过“26年1月”和“2026年1月”。短年份统一按 2000 年后解释，
-    // 仅用于排序和归并；读取时仍保留原始飞书字段名，避免改变既有数据映射。
+    // 仅用于排序和归并；读取时仍保留原始 Excel 表头，避免改变既有数据映射。
     if (rawYear.length === 2) year += 2000;
 
     return {
@@ -88,7 +86,7 @@ function getMonthColumnValue(fields, column) {
 }
 
 // ==================== 产品字段映射 ====================
-// 历史表前置三列来自飞书字段。保留 ASIN 兜底，是为了兼容旧表尚未完全迁移时的子 ASIN 数据。
+// 历史表前置三列来自 NAS Excel 字段。保留 ASIN 兜底，是为了兼容旧表尚未完全迁移时的子 ASIN 数据。
 var PRODUCT_FIELD = '品名';
 var PARENT_ASIN_FIELD = '父ASIN';
 var CHILD_ASIN_FIELD = '子ASIN';

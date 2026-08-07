@@ -52,8 +52,6 @@ INVENTORY_VALUE_APP_TOKEN = config.get("INVENTORY_VALUE_APP_TOKEN")
 INVENTORY_VALUE_TABLE_ID = config.get("INVENTORY_VALUE_TABLE_ID")
 
 # 历史销量多维表格
-HISTORY_APP_TOKEN = config["HISTORY_APP_TOKEN"]
-HISTORY_TABLE_ID = config["HISTORY_TABLE_ID"]
 
 # 发货审核当前状态数据库
 # 默认写在当前工作目录，可用环境变量 SHIPMENT_DB_PATH 指定绝对路径
@@ -71,11 +69,22 @@ FINANCE_DB_PATH = os.environ.get("FINANCE_DB_PATH", os.path.join(BASE_DIR, "fina
 # 否则拥有补货权限的用户可能借接口读取挂载目录中的其他 NAS 文件。
 REPLENISHMENT_FORECAST_XLSX_PATH = os.environ.get(
     "REPLENISHMENT_FORECAST_XLSX_PATH",
-    "/app/data/salse_data.xlsx"
+    "/storage/sales_data.xlsx"
 )
 REPLENISHMENT_FORECAST_SHEET_NAME = "data"
 REPLENISHMENT_FORECAST_HEADER_ROW = 1
 REPLENISHMENT_FORECAST_DATA_ROW = 2
+
+# 历史页面及其关联查询共用同一份 NAS 销量文件，但保持独立环境变量，
+# 以便日后需要拆分预测源与历史源时无需让浏览器或调用接口发生变化。
+HISTORY_SALES_XLSX_PATH = os.environ.get(
+    "HISTORY_SALES_XLSX_PATH",
+    "/storage/sales_data.xlsx"
+)
+HISTORY_SALES_SHEET_NAME = "data"
+HISTORY_SALES_HEADER_ROW = 1
+HISTORY_SALES_DATA_START_ROW = 2
+HISTORY_SALES_REQUIRED_HEADERS = ("品名", "父ASIN", "子ASIN")
 
 # Excel 第二行的表头是导入契约。前端会先校验一次，后端仍需再次校验，
 # 因为不能把浏览器提交的数据默认视为可信。
@@ -1085,20 +1094,92 @@ def get_replenishment_parent_overseas_inventory(user: str = Depends(get_current_
     return {"status": "success", "total": len(data), "data": data}
 
 
+def serialize_history_excel_value(value):
+    """
+    将 NAS Excel 单元格转为可安全返回给浏览器的 JSON 值。
+
+    正常销量表只包含文本、数字和空值；对未来出现的日期或其他 Excel 对象使用文本兜底，
+    避免单个异常单元格导致整个历史查询接口无法序列化。
+    """
+    if value is None:
+        return None
+    if isinstance(value, float) and not math.isfinite(value):
+        return None
+    if isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, datetime):
+        return value.isoformat()
+    return str(value)
+
+
 @app.get("/api/history")
 def get_history_data(user: str = Depends(get_current_user)):
-    """获取飞书历史销量表格数据（需登录，自动翻页突破500条限制）"""
+    """
+    从 NAS 销量 Excel 读取全部历史数据（需登录）。
+
+    保持原有 /api/history URL 和 {fields: {...}} 响应契约，因此历史页面、历史销量查询、
+    发货审核历史弹窗及整款预测页会统一切换到 NAS 数据，而无需分别修改前端请求地址。
+    """
     require_any_permission(user, ["history", "replenishment"], "历史销量")
 
-    token = get_feishu_token()
-    if not token:
-        raise HTTPException(status_code=500, detail="无法获取飞书 Token")
+    if not os.path.isfile(HISTORY_SALES_XLSX_PATH):
+        raise HTTPException(status_code=500, detail="NAS 历史销量文件不存在或未挂载到 API 容器")
 
-    records = get_bitable_data_all(token, table_id=HISTORY_TABLE_ID, app_token=HISTORY_APP_TOKEN)
-    if records is None:
-        raise HTTPException(status_code=500, detail="无法读取历史销量表格数据")
+    try:
+        from openpyxl import load_workbook
+    except ImportError:
+        raise HTTPException(status_code=500, detail="API 容器缺少 openpyxl，无法读取 NAS 历史销量文件")
 
-    return {"status": "success", "total": len(records), "data": records}
+    workbook = None
+    try:
+        # 只读模式避免大表加载时复制整份工作簿；data_only=True 保证公式列返回已保存的计算值。
+        workbook = load_workbook(HISTORY_SALES_XLSX_PATH, read_only=True, data_only=True)
+        if HISTORY_SALES_SHEET_NAME not in workbook.sheetnames:
+            raise HTTPException(status_code=500, detail="NAS 历史销量文件缺少 data 工作表")
+
+        worksheet = workbook[HISTORY_SALES_SHEET_NAME]
+        header_values = next(
+            worksheet.iter_rows(
+                min_row=HISTORY_SALES_HEADER_ROW,
+                max_row=HISTORY_SALES_HEADER_ROW,
+                values_only=True
+            ),
+            ()
+        )
+        headers = [str(value or "").strip() for value in header_values]
+        if not headers or any(not header for header in headers):
+            raise HTTPException(status_code=500, detail="NAS 历史销量文件第 1 行包含空表头")
+        if len(set(headers)) != len(headers):
+            raise HTTPException(status_code=500, detail="NAS 历史销量文件第 1 行包含重复表头")
+        if tuple(headers[:3]) != HISTORY_SALES_REQUIRED_HEADERS:
+            raise HTTPException(status_code=500, detail="NAS 历史销量文件前三列表头必须为品名、父ASIN、子ASIN")
+
+        records = []
+        for row_values in worksheet.iter_rows(
+            min_row=HISTORY_SALES_DATA_START_ROW,
+            values_only=True
+        ):
+            # 跳过 Excel 尾部或中间的全空行，不让无意义记录进入搜索、导出和统计。
+            if not any(value is not None and str(value).strip() for value in row_values):
+                continue
+            fields = {
+                header: serialize_history_excel_value(value)
+                for header, value in zip(headers, row_values)
+            }
+            records.append({"fields": fields})
+
+        return {"status": "success", "total": len(records), "data": records}
+    except HTTPException:
+        raise
+    except PermissionError:
+        raise HTTPException(status_code=500, detail="API 容器没有读取 NAS 历史销量文件的权限")
+    except Exception as exc:
+        # 仅记录异常类别，不返回 NAS 路径或工作簿解析细节给浏览器。
+        print(f"读取 NAS 历史销量文件失败: error_type={type(exc).__name__}")
+        raise HTTPException(status_code=500, detail="无法读取 NAS 历史销量文件")
+    finally:
+        if workbook is not None:
+            workbook.close()
 
 
 @app.post("/api/finance_profit/import")
@@ -1584,4 +1665,6 @@ def get_feishu_image(
 
 if __name__ == "__main__":
     print("中转服务器正在启动...")
-    uvicorn.run(app, host="127.0.0.1", port=5000)
+    # 容器端口映射和独立 Nginx 容器都通过容器网络访问此服务；绑定 127.0.0.1
+    # 会把服务限制在 Python 容器自身，导致宿主机映射及反向代理无法建立连接。
+    uvicorn.run(app, host="0.0.0.0", port=5000)

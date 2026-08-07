@@ -1492,12 +1492,19 @@ function findHistoryRowsForAsin(records, asin, asinType) {
 }
 
 function getHistoryMonthSummary(rows, year, month) {
-    const fieldName = String(year).slice(2) + "年" + month + "月";
+    // NAS 文件使用“2027年1月”表头，旧飞书历史数据可能仍是“27年1月”。
+    // 优先全年份字段，只有该单元格为空时才回退短年份，避免同月双字段被重复累计。
+    const fullYearFieldName = String(year) + "年" + month + "月";
+    const shortYearFieldName = String(year).slice(2) + "年" + month + "月";
     let hasValue = false;
     let sum = 0;
 
     rows.forEach(record => {
-        const raw = record.fields ? record.fields[fieldName] : undefined;
+        const fields = record.fields || {};
+        const fullYearValue = fields[fullYearFieldName];
+        const raw = fullYearValue !== undefined && fullYearValue !== null && fullYearValue !== ""
+            ? fullYearValue
+            : fields[shortYearFieldName];
         const text = historyValueToText(raw).replace(/,/g, "").trim();
         if (text !== "") {
             hasValue = true;
