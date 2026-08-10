@@ -88,8 +88,10 @@ HISTORY_SALES_REQUIRED_HEADERS = ("品名", "父ASIN", "子ASIN")
 
 # Excel 第二行的表头是导入契约。前端会先校验一次，后端仍需再次校验，
 # 因为不能把浏览器提交的数据默认视为可信。
-# “海外仓仓租”是可选字段：旧版 25 列模板不含它，新版模板将其放在“仓储费$”后。
-OVERSEAS_STORAGE_RENT_FIELD = "海外仓仓租"
+# 上传仅接受原始 25 列模板，或在“仓储费$”后新增“海外仓仓储费”的当前 26 列模板。
+# 数据库沿用既有 overseas_storage_rent 列名存储该金额，避免部署升级时重建或丢失历史表；
+# 列名仅是内部实现，不会扩大可上传的模板范围。
+OVERSEAS_STORAGE_FEE_FIELD = "海外仓仓储费"
 FINANCE_FIELD_DEFINITIONS = (
     ("父ASIN", "parent_asin", "text"),
     ("品名", "product_name", "text"),
@@ -114,12 +116,12 @@ FINANCE_FIELD_DEFINITIONS = (
     ("物流成本$", "logistics_cost", "number"),
     ("FBA fee$", "fba_fee_amount", "number"),
     ("仓储费$", "storage_fee", "number"),
-    (OVERSEAS_STORAGE_RENT_FIELD, "overseas_storage_rent", "number"),
+    (OVERSEAS_STORAGE_FEE_FIELD, "overseas_storage_rent", "number"),
     ("品类", "category", "text"),
     ("资产收益率", "asset_return_rate", "ratio"),
 )
 FINANCE_FIELDS = tuple(item[0] for item in FINANCE_FIELD_DEFINITIONS)
-FINANCE_LEGACY_FIELDS = tuple(field for field in FINANCE_FIELDS if field != OVERSEAS_STORAGE_RENT_FIELD)
+FINANCE_LEGACY_FIELDS = tuple(field for field in FINANCE_FIELDS if field != OVERSEAS_STORAGE_FEE_FIELD)
 
 # ================= 登录认证配置 =================
 # token 签名密钥（请自行修改为随机字符串）
@@ -462,7 +464,8 @@ def init_finance_db():
             """
         )
         # CREATE TABLE IF NOT EXISTS 不会为已经存在的库补齐新字段。这里先查字段名
-        # 再执行幂等的 ALTER TABLE，使旧报表保留且默认标记为“不含海外仓仓租”。
+        # 再执行幂等的 ALTER TABLE，使旧报表保留且默认标记为“不含海外仓仓储费”。
+        # 字段名保留历史 rent 命名，原因见 OVERSEAS_STORAGE_FEE_FIELD 的注释。
         report_columns = {row["name"] for row in conn.execute("PRAGMA table_info(finance_reports)")}
         if "has_overseas_storage_rent" not in report_columns:
             conn.execute(
@@ -585,7 +588,7 @@ def normalize_finance_number(value, is_ratio=False):
     return number
 
 
-def normalize_finance_rows(rows, has_overseas_storage_rent: bool):
+def normalize_finance_rows(rows, has_overseas_storage_fee: bool):
     """按新旧模板校验导入行，并返回完整数据库字段顺序的元组。"""
     if not isinstance(rows, list) or not rows:
         raise HTTPException(status_code=400, detail="Excel 中没有可保存的数据行")
@@ -598,7 +601,7 @@ def normalize_finance_rows(rows, has_overseas_storage_rent: bool):
         if not isinstance(row, dict):
             raise HTTPException(status_code=400, detail=f"Excel 第 {index} 行格式不合法")
 
-        required_fields = FINANCE_FIELDS if has_overseas_storage_rent else FINANCE_LEGACY_FIELDS
+        required_fields = FINANCE_FIELDS if has_overseas_storage_fee else FINANCE_LEGACY_FIELDS
         missing_fields = [field for field in required_fields if field not in row]
         if missing_fields:
             raise HTTPException(
@@ -608,9 +611,9 @@ def normalize_finance_rows(rows, has_overseas_storage_rent: bool):
 
         normalized = []
         for display_name, _column_name, field_type in FINANCE_FIELD_DEFINITIONS:
-            # 旧版 25 列文件没有该表头。入库时明确补 NULL，而不是把后续“品类”
-            # 错位读取为仓租；读取页面据报表标记决定是否展示此列。
-            if display_name == OVERSEAS_STORAGE_RENT_FIELD and not has_overseas_storage_rent:
+            # 原始 25 列文件没有该表头。入库时明确补 NULL，而不是把后续“品类”
+            # 错位读取为海外仓仓储费；读取页面据报表标记决定是否展示此列。
+            if display_name == OVERSEAS_STORAGE_FEE_FIELD and not has_overseas_storage_fee:
                 normalized.append(None)
                 continue
             value = row.get(display_name)
@@ -1191,8 +1194,8 @@ def import_finance_profit(body: dict, user: str = Depends(get_current_user)):
         raise HTTPException(status_code=400, detail="请求体必须是 JSON 对象")
 
     headers = body.get("headers")
-    has_overseas_storage_rent = headers == list(FINANCE_FIELDS)
-    if not has_overseas_storage_rent and headers != list(FINANCE_LEGACY_FIELDS):
+    has_overseas_storage_fee = headers == list(FINANCE_FIELDS)
+    if not has_overseas_storage_fee and headers != list(FINANCE_LEGACY_FIELDS):
         raise HTTPException(status_code=400, detail="Excel 表头与单款财务利润模板不一致")
 
     report_month = validate_finance_month(body.get("reportMonth"))
@@ -1211,7 +1214,7 @@ def import_finance_profit(body: dict, user: str = Depends(get_current_user)):
 
     normalized_rows = normalize_finance_rows(
         body.get("rows"),
-        has_overseas_storage_rent=has_overseas_storage_rent
+        has_overseas_storage_fee=has_overseas_storage_fee
     )
     replace_existing = body.get("replaceExisting") is True
     uploaded_at = get_now_text()
@@ -1247,7 +1250,7 @@ def import_finance_profit(body: dict, user: str = Depends(get_current_user)):
                 WHERE id = ?
                 """,
                 (
-                    title, source_filename, len(normalized_rows), int(has_overseas_storage_rent),
+                    title, source_filename, len(normalized_rows), int(has_overseas_storage_fee),
                     uploaded_at, user, report_id
                 )
             )
@@ -1261,7 +1264,7 @@ def import_finance_profit(body: dict, user: str = Depends(get_current_user)):
                 """,
                 (
                     report_month, title, source_filename, len(normalized_rows),
-                    int(has_overseas_storage_rent), uploaded_at, user
+                    int(has_overseas_storage_fee), uploaded_at, user
                 )
             )
             report_id = cursor.lastrowid
@@ -1288,7 +1291,7 @@ def import_finance_profit(body: dict, user: str = Depends(get_current_user)):
         "row_count": len(normalized_rows),
         "uploaded_at": uploaded_at,
         "uploaded_by": user,
-        "has_overseas_storage_rent": has_overseas_storage_rent
+        "has_overseas_storage_fee": has_overseas_storage_fee
     }
 
 
@@ -1300,7 +1303,8 @@ def get_finance_profit_months(user: str = Depends(get_current_user)):
     try:
         rows = conn.execute(
             """
-            SELECT report_month, title, source_filename, row_count, has_overseas_storage_rent,
+            SELECT report_month, title, source_filename, row_count,
+                   has_overseas_storage_rent AS has_overseas_storage_fee,
                    uploaded_at, uploaded_by
             FROM finance_reports
             ORDER BY report_month DESC
@@ -1336,7 +1340,8 @@ def get_finance_profit_history(parent_asin: str, user: str = Depends(get_current
             "SELECT MIN(report_month) AS start_month, MAX(report_month) AS end_month FROM finance_reports"
         ).fetchone()
         report_feature_rows = conn.execute(
-            "SELECT report_month, has_overseas_storage_rent FROM finance_reports"
+            "SELECT report_month, has_overseas_storage_rent AS has_overseas_storage_fee "
+            "FROM finance_reports"
         ).fetchall()
         start_month = range_row["start_month"] if range_row else None
         end_month = range_row["end_month"] if range_row else None
@@ -1379,8 +1384,8 @@ def get_finance_profit_history(parent_asin: str, user: str = Depends(get_current
         for row in matched_rows
         if row["matched_row_no"] is not None
     }
-    report_has_overseas_storage_rent = {
-        row["report_month"]: bool(row["has_overseas_storage_rent"])
+    report_has_overseas_storage_fee = {
+        row["report_month"]: bool(row["has_overseas_storage_fee"])
         for row in report_feature_rows
     }
 
@@ -1394,7 +1399,7 @@ def get_finance_profit_history(parent_asin: str, user: str = Depends(get_current
         item = {
             "report_month": report_month,
             "has_data": matched_row is not None,
-            "has_overseas_storage_rent": report_has_overseas_storage_rent.get(report_month, False)
+            "has_overseas_storage_fee": report_has_overseas_storage_fee.get(report_month, False)
         }
         if matched_row is not None:
             item.update({
@@ -1467,7 +1472,7 @@ def get_finance_profit(month: Optional[str] = None, user: str = Depends(get_curr
         "title": report["title"],
         "source_filename": report["source_filename"],
         "row_count": report["row_count"],
-        "has_overseas_storage_rent": bool(report["has_overseas_storage_rent"]),
+        "has_overseas_storage_fee": bool(report["has_overseas_storage_rent"]),
         "uploaded_at": report["uploaded_at"],
         "uploaded_by": report["uploaded_by"]
     }

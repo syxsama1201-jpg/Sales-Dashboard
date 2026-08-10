@@ -13,19 +13,16 @@ const FINANCE_FIELDS = [
     '折扣活动金额$', '采购成本 $', '物流成本$', 'FBA fee$', '仓储费$', '品类', '资产收益率'
 ];
 
-// “海外仓仓租”只在上传文件明确包含该表头时展示。它插在“仓储费$”与“品类”之间，
-// 以同时兼容原有 25 列模板和新增此字段的模板，避免把旧模板的“品类”错读成仓租。
-const OVERSEAS_STORAGE_RENT_FIELD = '海外仓仓租';
-const OVERSEAS_STORAGE_RENT_INSERT_INDEX = FINANCE_FIELDS.indexOf('仓储费$') + 1;
-const FINANCE_FIELDS_WITH_OVERSEAS_STORAGE_RENT = [
-    ...FINANCE_FIELDS.slice(0, OVERSEAS_STORAGE_RENT_INSERT_INDEX),
-    OVERSEAS_STORAGE_RENT_FIELD,
-    ...FINANCE_FIELDS.slice(OVERSEAS_STORAGE_RENT_INSERT_INDEX)
+// 上传只支持两套完整表头：原始 25 列模板，或在“仓储费$”与“品类”之间
+// 增加“海外仓仓储费”的当前 26 列模板。字段清单由代码固定，避免未定义列被
+// 静默忽略后造成展示、导出和保存的数据不一致。
+const OVERSEAS_STORAGE_FEE_FIELD = '海外仓仓储费';
+const OVERSEAS_STORAGE_FEE_INSERT_INDEX = FINANCE_FIELDS.indexOf('仓储费$') + 1;
+const FINANCE_FIELDS_WITH_OVERSEAS_STORAGE_FEE = [
+    ...FINANCE_FIELDS.slice(0, OVERSEAS_STORAGE_FEE_INSERT_INDEX),
+    OVERSEAS_STORAGE_FEE_FIELD,
+    ...FINANCE_FIELDS.slice(OVERSEAS_STORAGE_FEE_INSERT_INDEX)
 ];
-
-// 无论新旧模板，文件总表头数都不能超过 30；未定义的其余附加列仅为兼容导出版本，
-// 不会进入页面、CSV 或保存载荷，以保持数据契约可追溯。
-const FINANCE_MAX_UPLOAD_HEADER_COLUMNS = 30;
 
 const FINANCE_TEXT_FIELDS = new Set(['父ASIN', '品名', '品类']);
 const FINANCE_RATIO_FIELDS = new Set([
@@ -35,7 +32,7 @@ const FINANCE_RATIO_FIELDS = new Set([
 const FINANCE_CURRENCY_FIELDS = new Set([
     '销售额$', '客单价$', 'FBA fee', '利润额$', '退货金额$', '亚马逊扣费后金额$',
     '广告费$', '折扣活动金额$', '采购成本 $', '物流成本$', 'FBA fee$', '仓储费$',
-    OVERSEAS_STORAGE_RENT_FIELD
+    OVERSEAS_STORAGE_FEE_FIELD
 ]);
 
 let financeReports = [];
@@ -261,7 +258,7 @@ function stageFinancePayload(payload) {
         row_count: payload.rows.length,
         uploaded_at: null,
         uploaded_by: null,
-        has_overseas_storage_rent: payload.hasOverseasStorageRent === true
+        has_overseas_storage_fee: payload.hasOverseasStorageFee === true
     };
     financeRows = payload.rows.slice();
 
@@ -384,33 +381,38 @@ async function parseFinanceWorkbook(file) {
     const reportMonth = parseReportMonth(title);
     const headerRow = grid[1] || [];
     const normalizedHeaderRow = headerRow.map(normalizeHeader);
-    const uploadedOverseasStorageRentIndex = normalizedHeaderRow.indexOf(OVERSEAS_STORAGE_RENT_FIELD);
-    const hasOverseasStorageRent = uploadedOverseasStorageRentIndex !== -1;
-    if (hasOverseasStorageRent && uploadedOverseasStorageRentIndex !== OVERSEAS_STORAGE_RENT_INSERT_INDEX) {
-        throw new Error(
-            '“' + OVERSEAS_STORAGE_RENT_FIELD + '”应位于“仓储费$”与“品类”之间'
-        );
-    }
-
-    const uploadedFields = hasOverseasStorageRent
-        ? FINANCE_FIELDS_WITH_OVERSEAS_STORAGE_RENT
-        : FINANCE_FIELDS;
-    const headers = uploadedFields.map(function(_field, index) {
-        return normalizeHeader(headerRow[index]);
+    const supportedTemplates = [
+        { fields: FINANCE_FIELDS, hasOverseasStorageFee: false },
+        { fields: FINANCE_FIELDS_WITH_OVERSEAS_STORAGE_FEE, hasOverseasStorageFee: true }
+    ];
+    const matchedTemplate = supportedTemplates.find(function(template) {
+        return template.fields.every(function(field, index) {
+            return normalizedHeaderRow[index] === field;
+        }) && !headerRow.slice(template.fields.length).some(function(value) {
+            return !isBlankExcelValue(value);
+        });
     });
 
-    const badHeaderIndex = uploadedFields.findIndex(function(field, index) {
-        return headers[index] !== field;
-    });
-    if (badHeaderIndex !== -1) {
-        throw new Error(
-            '第 ' + (badHeaderIndex + 1) + ' 列表头应为“' + uploadedFields[badHeaderIndex] +
-            '”，实际为“' + (headers[badHeaderIndex] || '空') + '”'
-        );
+    if (!matchedTemplate) {
+        // 第 24 列是区分两套模板的唯一位置。根据该位置选取最接近的契约，
+        // 让用户能够直接定位首个不匹配的表头，而不是误以为可以继续添加其他列。
+        const expectedFields = normalizedHeaderRow[OVERSEAS_STORAGE_FEE_INSERT_INDEX] === OVERSEAS_STORAGE_FEE_FIELD
+            ? FINANCE_FIELDS_WITH_OVERSEAS_STORAGE_FEE
+            : FINANCE_FIELDS;
+        const badHeaderIndex = expectedFields.findIndex(function(field, index) {
+            return normalizedHeaderRow[index] !== field;
+        });
+        if (badHeaderIndex !== -1) {
+            throw new Error(
+                '第 ' + (badHeaderIndex + 1) + ' 列表头应为“' + expectedFields[badHeaderIndex] +
+                '”，实际为“' + (normalizedHeaderRow[badHeaderIndex] || '空') + '”'
+            );
+        }
+        throw new Error('Excel 表头只能使用原始 25 列模板或当前 26 列模板，不能包含额外非空列');
     }
-    if (headerRow.slice(FINANCE_MAX_UPLOAD_HEADER_COLUMNS).some(function(value) { return !isBlankExcelValue(value); })) {
-        throw new Error('模板表头仅允许 25 到 ' + FINANCE_MAX_UPLOAD_HEADER_COLUMNS + ' 列，请检查文件版本');
-    }
+
+    const uploadedFields = matchedTemplate.fields;
+    const hasOverseasStorageFee = matchedTemplate.hasOverseasStorageFee;
 
     const rows = [];
     const seenParentAsins = new Set();
@@ -447,7 +449,7 @@ async function parseFinanceWorkbook(file) {
         title: title,
         sourceFilename: file.name,
         headers: uploadedFields.slice(),
-        hasOverseasStorageRent: hasOverseasStorageRent,
+        hasOverseasStorageFee: hasOverseasStorageFee,
         rows: rows
     };
 }
@@ -473,19 +475,19 @@ function isBlankExcelValue(value) {
 }
 
 function getFinanceFieldsForReport(report) {
-    return report && report.has_overseas_storage_rent
-        ? FINANCE_FIELDS_WITH_OVERSEAS_STORAGE_RENT
+    return report && report.has_overseas_storage_fee
+        ? FINANCE_FIELDS_WITH_OVERSEAS_STORAGE_FEE
         : FINANCE_FIELDS;
 }
 
 function getFinanceFieldsForHistory(rows) {
     // 历史表跨月展示：只要查询范围内任一已归档报表含此列，就展示该列，
     // 其余月份保留空值，避免在同一张跨月表中出现前后列数不一致。
-    const hasOverseasStorageRent = rows.some(function(row) {
-        return row.has_overseas_storage_rent === true;
+    const hasOverseasStorageFee = rows.some(function(row) {
+        return row.has_overseas_storage_fee === true;
     });
-    return hasOverseasStorageRent
-        ? FINANCE_FIELDS_WITH_OVERSEAS_STORAGE_RENT
+    return hasOverseasStorageFee
+        ? FINANCE_FIELDS_WITH_OVERSEAS_STORAGE_FEE
         : FINANCE_FIELDS;
 }
 
@@ -672,7 +674,7 @@ function showFinanceHistoryQueryStatus(message, type) {
 }
 
 function handleFinanceSort(field) {
-    // 可选字段只会在对应报表中显示；用当前可见字段判断，避免“海外仓仓租”
+    // 可选字段只会在对应报表中显示；用当前可见字段判断，避免“海外仓仓储费”
     // 已渲染排序按钮却被旧版 25 列字段清单提前拦截。
     if (FINANCE_TEXT_FIELDS.has(field) || getFinanceFieldsForReport(currentFinanceReport).indexOf(field) === -1) return;
 
