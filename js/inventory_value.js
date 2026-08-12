@@ -2,9 +2,8 @@
  * inventory_value.js — 库存金额页面专属逻辑
  * 依赖：common.js 必须先加载。
  *
- * 本页字段来自 inventory_value.xlsx 第二行表头。第一行只是页面分组表头，
- * 不参与飞书字段读取；这样可以保证页面结构和 Excel 展示一致，同时让数据拉取
- * 仍然按飞书多维表格的字段名稳定匹配。
+ * 本页字段来自 inventory_value.xlsx 第一行表头。后端从 NAS 读取后保留原始字段名，
+ * 因此页面仍可按固定字段名格式化和排序；模板中新增但未展示的列不会影响当前页面。
  */
 
 // ==================== 字段映射配置（与飞书字段名保持一致） ====================
@@ -201,13 +200,16 @@ function renderAsinCell(value) {
         '" target="_blank" title="在亚马逊查看 ' + safeAsin + '">↗</a></span>';
 }
 
-function renderProductImage(value) {
+function renderProductImage(childAsin) {
     const placeholder = '<div style="width:25px; height:25px; background-color:#f2f3f5; border-radius:2px;"></div>';
-    if (!Array.isArray(value) || value.length === 0 || !value[0].url) return placeholder;
+    const normalizedAsin = valueToText(childAsin).trim();
+    if (!normalizedAsin) return placeholder;
 
-    const rawFeishuImgUrl = value[0].url;
+    // img 标签不能携带 Authorization Header；后端会用 token 校验 value 或 inventory 权限，
+    // 并仅按子 ASIN 在 NAS 图片目录中查找固定扩展名，避免浏览器拼接任意文件路径。
     const imgToken = getToken();
-    return `<img src="${API_BASE}/api/image?url=${encodeURIComponent(rawFeishuImgUrl)}&_token=${encodeURIComponent(imgToken || '')}" loading="lazy" onerror="handleImageError(this)" style="width:25px; height:25px; object-fit:cover; border-radius:2px; display:block;">`;
+    const imageUrl = `${API_BASE}/api/inventory/image/${encodeURIComponent(normalizedAsin)}?_token=${encodeURIComponent(imgToken || '')}`;
+    return `<img src="${imageUrl}" loading="lazy" onerror="handleImageError(this)" style="width:25px; height:25px; object-fit:cover; border-radius:2px; display:block;">`;
 }
 
 // ==================== 卡片计算与渲染 ====================
@@ -346,7 +348,7 @@ function renderTable(records) {
         const cells = [];
 
         cells.push('<td class="sticky-col-1" title="' + escapeHtml(getField(f, '品名')) + '">' + formatCell('品名', getField(f, '品名')) + '</td>');
-        cells.push('<td class="sticky-col-2">' + renderProductImage(getField(f, '产品图')) + '</td>');
+        cells.push('<td class="sticky-col-2">' + renderProductImage(getField(f, '子ASIN')) + '</td>');
         cells.push('<td class="sticky-col-3">' + renderAsinCell(getField(f, '父ASIN')) + '</td>');
         cells.push('<td class="sticky-col-4">' + renderAsinCell(getField(f, '子ASIN')) + '</td>');
         cells.push('<td class="sticky-col-5">' + formatCell('MSKU', getField(f, 'MSKU')) + '</td>');

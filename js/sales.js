@@ -245,6 +245,16 @@ function applyFilterAndSort() {
 
 // ==================== 表格渲染 ====================
 
+function getSalesImageUrl(childAsin) {
+    const normalizedAsin = String(childAsin || '').trim();
+    if (!normalizedAsin) return '';
+
+    // img 标签不能携带 Authorization Header，因此与原图片代理保持 query token 方式。
+    // 后端仍会校验 token 和 sales 权限，不会将 NAS 图片目录暴露为静态公开路径。
+    const imgToken = getToken();
+    return `${API_BASE}/api/sales/image/${encodeURIComponent(normalizedAsin)}?_token=${encodeURIComponent(imgToken || '')}`;
+}
+
 function renderTable(records) {
     const tbody = document.querySelector('tbody');
     tbody.innerHTML = '';
@@ -254,10 +264,14 @@ function renderTable(records) {
         if (Object.keys(fields).length === 0) return;
 
         let imgHtml = '<div style="width:25px; height:25px; background-color:#f2f3f5; border-radius:2px;"></div>';
-        if (fields['产品图'] && fields['产品图'].length > 0) {
-            const rawFeishuImgUrl = fields['产品图'][0].url;
-            const imgToken = getToken();
-            imgHtml = `<img src="${API_BASE}/api/image?url=${encodeURIComponent(rawFeishuImgUrl)}&_token=${encodeURIComponent(imgToken || '')}" loading="lazy" onerror="handleImageError(this)" style="width:25px; height:25px; object-fit:cover; border-radius:2px; display:block;">`;
+        // 明细行直接用子 ASIN；父 ASIN 聚合行使用该组第一条子 ASIN，
+        // 与聚合时保留第一条产品信息的既有规则一致。
+        const imageAsin = currentView === 'parent'
+            ? (Array.isArray(fields['子ASIN_list']) ? fields['子ASIN_list'][0] : '')
+            : fields['子ASIN'];
+        const imageUrl = getSalesImageUrl(imageAsin);
+        if (imageUrl) {
+            imgHtml = `<img src="${imageUrl}" loading="lazy" onerror="handleImageError(this)" style="width:25px; height:25px; object-fit:cover; border-radius:2px; display:block;">`;
         }
 
         let trendClass = '', trendText = '-';

@@ -191,6 +191,16 @@ function applyFilterAndSort() {
 
 // ==================== 表格渲染 ====================
 
+function getInventoryImageUrl(childAsin) {
+    const normalizedAsin = String(childAsin || '').trim();
+    if (!normalizedAsin) return '';
+
+    // img 标签无法自定义 Authorization Header；后端会用 query token 校验登录状态
+    // 和库存权限，再从 NAS 的 Amazon_Images 目录读取固定 ASIN 文件名。
+    const imgToken = getToken();
+    return `${API_BASE}/api/inventory/image/${encodeURIComponent(normalizedAsin)}?_token=${encodeURIComponent(imgToken || '')}`;
+}
+
 function renderTable(records) {
     const tbody = document.querySelector('tbody');
     tbody.innerHTML = '';
@@ -201,10 +211,9 @@ function renderTable(records) {
 
         // 产品图
         let imgHtml = '<div style="width:25px; height:25px; background-color:#f2f3f5; border-radius:2px;"></div>';
-        if (f[FIELD_MAP['产品图']] && f[FIELD_MAP['产品图']].length > 0) {
-            const rawFeishuImgUrl = f[FIELD_MAP['产品图']][0].url;
-            const imgToken = getToken();
-            imgHtml = `<img src="${API_BASE}/api/image?url=${encodeURIComponent(rawFeishuImgUrl)}&_token=${encodeURIComponent(imgToken || '')}" loading="lazy" onerror="handleImageError(this)" style="width:25px; height:25px; object-fit:cover; border-radius:2px; display:block;">`;
+        const imageUrl = getInventoryImageUrl(f[FIELD_MAP['子ASIN']]);
+        if (imageUrl) {
+            imgHtml = `<img src="${imageUrl}" loading="lazy" onerror="handleImageError(this)" style="width:25px; height:25px; object-fit:cover; border-radius:2px; display:block;">`;
         }
 
         const tr = document.createElement('tr');

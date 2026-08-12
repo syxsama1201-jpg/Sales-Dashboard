@@ -9,13 +9,14 @@ import os
 import sqlite3
 import sys
 import threading
+import re
 from collections import OrderedDict
 from urllib.parse import urlparse
 from datetime import datetime
 from typing import Optional
 from fastapi import FastAPI, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
+from fastapi.responses import FileResponse, Response
 import uvicorn
 
 # ================= 核心配置区 =================
@@ -85,6 +86,73 @@ HISTORY_SALES_SHEET_NAME = "data"
 HISTORY_SALES_HEADER_ROW = 1
 HISTORY_SALES_DATA_START_ROW = 2
 HISTORY_SALES_REQUIRED_HEADERS = ("品名", "父ASIN", "子ASIN")
+
+# 销售页与历史销量共享 NAS 挂载根目录，但文件职责不同：sales_data.xlsx 是历史数据，
+# sales.xlsx 只供即时销售页读取。分别配置可避免销售页更新时误覆盖历史数据源。
+SALES_XLSX_PATH = os.environ.get("SALES_XLSX_PATH", "/storage/sales.xlsx")
+SALES_XLSX_SHEET_NAME = os.environ.get("SALES_XLSX_SHEET_NAME", "Sheet1")
+SALES_IMAGE_DIR = os.environ.get("SALES_IMAGE_DIR", "/storage/Amazon_Images")
+SALES_XLSX_HEADER_ROW = 1
+SALES_XLSX_DATA_START_ROW = 2
+
+# 两个库存页和销售页共用同一份 NAS 商品图片目录。沿用 SALES_IMAGE_DIR 变量名，
+# 是为了兼容已经部署的销售页环境变量；库存页直接复用该路径，不会产生第二份图片副本。
+INVENTORY_XLSX_PATH = os.environ.get("INVENTORY_XLSX_PATH", "/storage/inventory.xlsx")
+INVENTORY_XLSX_SHEET_NAME = os.environ.get("INVENTORY_XLSX_SHEET_NAME", "Sheet1")
+INVENTORY_VALUE_XLSX_PATH = os.environ.get(
+    "INVENTORY_VALUE_XLSX_PATH",
+    "/storage/inventory_value.xlsx",
+)
+INVENTORY_VALUE_XLSX_SHEET_NAME = os.environ.get(
+    "INVENTORY_VALUE_XLSX_SHEET_NAME",
+    "库存情况",
+)
+INVENTORY_XLSX_HEADER_ROW = 1
+INVENTORY_XLSX_DATA_START_ROW = 2
+
+# 江西两列暂未写入当前库存模板。它们不列为接口必填字段，使前端既有的 ``|| '0'``
+# 兜底继续生效；未来在模板中补列后，接口会自动按原始表头返回真实数值。
+INVENTORY_REQUIRED_HEADERS = (
+    "产品名称", "父ASIN", "子ASIN", "MSKU", "包含生产在途", "不含生产在途",
+    "海外库存总量", "FBA库存", "FBA在途", "西邮库存", "LNK库存", "供应商库存总量",
+    "杰戈工厂库存", "惠安工厂库存", "泉州工厂库存", "供应商在途总量",
+    "杰戈工厂在途", "惠安工厂在途", "泉州工厂在途",
+)
+
+# SP 总量和总金额会按 Excel 表头随记录返回，但不属于当前库存金额页面的展示字段，
+# 因此不设为必填，也不修改前端表格列，避免本次接入扩大页面展示范围。
+INVENTORY_VALUE_REQUIRED_HEADERS = (
+    "品名", "父ASIN", "子ASIN", "MSKU", "FBA在途", "FBA库存", "FBA总量",
+    "FBA总金额", "西邮库存", "西邮库存金额", "LNK总量", "LNK总金额", "海外总量",
+    "海外总金额", "惠安在途金额", "惠安库存金额", "泉州在途金额", "泉州库存金额",
+    "杰戈在途金额", "杰戈库存金额", "国内库存金额", "惠安在途数量", "惠安库存数量",
+    "泉州在途数量", "泉州库存数量", "杰戈在途数量", "杰戈库存数量", "国内库存总数",
+)
+
+# 以下字段覆盖 sales.html 已有的表格、卡片和父 ASIN 聚合计算。启动时不读取文件，
+# 而是在请求时校验，避免 NAS 尚未挂载时阻断其他页面和登录接口。
+SALES_REQUIRED_HEADERS = (
+    "产品名称", "父ASIN", "子ASIN", "MSKU", "目标销量", "今日销量", "环比昨日",
+    "今日销售额", "今日单价", "昨日销量", "昨日销售额", "昨日单价", "上周同日销量",
+    "可售库存", "可售天数", "大类排名", "小类排名",
+)
+
+# 图片文件以子 ASIN 命名。只接受十位英数字 ASIN，既保证文件映射可预测，
+# 也确保路径永远不能由浏览器输入穿越到图片目录以外。
+SALES_ASIN_PATTERN = re.compile(r"^[A-Z0-9]{10}$")
+SALES_IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png")
+SALES_IMAGE_MEDIA_TYPES = {
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+}
+
+# 缺图时返回与现有商品图主尺寸一致的 600 x 600 纯灰 PNG（#f2f3f5）。
+# 将占位图固定在服务端而非依赖 NAS 额外文件，可保证图片目录缺少单个 ASIN 时
+# 仍可稳定显示，同时避免前端针对 404 发起多次无意义重试。
+SALES_PLACEHOLDER_IMAGE = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAlgAAAJYCAYAAAC+ZpjcAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAApeSURBVHhe7dYxEQAgDAAx/MuF61xM/JghHnLumwUAoCNYAAAxwQIAiAkWAEBMsAAAYoIFABATLACAmGABAMQECwAgJlgAADHBAgCICRYAQEywAABiggUAEBMsAICYYAEAxAQLACAmWAAAMcECAIgJFgBATLAAAGKCBQAQEywAgJhgAQDEBAsAICZYAAAxwQIAiAkWAEBMsAAAYoIFABATLACAmGABAMQECwAgJlgAADHBAgCICRYAQEywAABiggUAEBMsAICYYAEAxAQLACAmWAAAMcECAIgJFgBATLAAAGKCBQAQEywAgJhgAQDEBAsAICZYAAAxwQIAiAkWAEBMsAAAYoIFABATLACAmGABAMQECwAgJlgAADHBAgCICRYAQEywAABiggUAEBMsAICYYAEAxAQLACAmWAAAMcECAIgJFgBATLAAAGKCBQAQEywAgJhgAQDEBAsAICZYAAAxwQIAiAkWAEBMsAAAYoIFABATLACAmGABAMQECwAgJlgAADHBAgCICRYAQEywAABiggUAEBMsAICYYAEAxAQLACAmWAAAMcECAIgJFgBATLAAAGKCBQAQEywAgJhgAQDEBAsAICZYAAAxwQIAiAkWAEBMsAAAYoIFABATLACAmGABAMQECwAgJlgAADHBAgCICRYAQEywAABiggUAEBMsAICYYAEAxAQLACAmWAAAMcECAIgJFgBATLAAAGKCBQAQEywAgJhgAQDEBAsAICZYAAAxwQIAiAkWAEBMsAAAYoIFABATLACAmGABAMQECwAgJlgAADHBAgCICRYAQEywAABiggUAEBMsAICYYAEAxAQLACAmWAAAMcECAIgJFgBATLAAAGKCBQAQEywAgJhgAQDEBAsAICZYAAAxwQIAiAkWAEBMsAAAYoIFABATLACAmGABAMQECwAgJlgAADHBAgCICRYAQEywAABiggUAEBMsAICYYAEAxAQLACAmWAAAMcECAIgJFgBATLAAAGKCBQAQEywAgJhgAQDEBAsAICZYAAAxwQIAiAkWAEBMsAAAYoIFABATLACAmGABAMQECwAgJlgAADHBAgCICRYAQEywAABiggUAEBMsAICYYAEAxAQLACAmWAAAMcECAIgJFgBATLAAAGKCBQAQEywAgJhgAQDEBAsAICZYAAAxwQIAiAkWAEBMsAAAYoIFABATLACAmGABAMQECwAgJlgAADHBAgCICRYAQEywAABiggUAEBMsAICYYAEAxAQLACAmWAAAMcECAIgJFgBATLAAAGKCBQAQEywAgJhgAQDEBAsAICZYAAAxwQIAiAkWAEBMsAAAYoIFABATLACAmGABAMQECwAgJlgAADHBAgCICRYAQEywAABiggUAEBMsAICYYAEAxAQLACAmWAAAMcECAIgJFgBATLAAAGKCBQAQEywAgJhgAQDEBAsAICZYAAAxwQIAiAkWAEBMsAAAYoIFABATLACAmGABAMQECwAgJlgAADHBAgCICRYAQEywAABiggUAEBMsAICYYAEAxAQLACAmWAAAMcECAIgJFgBATLAAAGKCBQAQEywAgJhgAQDEBAsAICZYAAAxwQIAiAkWAEBMsAAAYoIFABATLACAmGABAMQECwAgJlgAADHBAgCICRYAQEywAABiggUAEBMsAICYYAEAxAQLACAmWAAAMcECAIgJFgBATLAAAGKCBQAQEywAgJhgAQDEBAsAICZYAAAxwQIAiAkWAEBMsAAAYoIFABATLACAmGABAMQECwAgJlgAADHBAgCICRYAQEywAABiggUAEBMsAICYYAEAxAQLACAmWAAAMcECAIgJFgBATLAAAGKCBQAQEywAgJhgAQDEBAsAICZYAAAxwQIAiAkWAEBMsAAAYoIFABATLACAmGABAMQECwAgJlgAADHBAgCICRYAQEywAABiggUAEBMsAICYYAEAxAQLACAmWAAAMcECAIgJFgBATLAAAGKCBQAQEywAgJhgAQDEBAsAICZYAAAxwQIAiAkWAEBMsAAAYoIFABATLACAmGABAMQECwAgJlgAADHBAgCICRYAQEywAABiggUAEBMsAICYYAEAxAQLACAmWAAAMcECAIgJFgBATLAAAGKCBQAQEywAgJhgAQDEBAsAICZYAAAxwQIAiAkWAEBMsAAAYoIFABATLACAmGABAMQECwAgJlgAADHBAgCICRYAQEywAABiggUAEBMsAICYYAEAxAQLACAmWAAAMcECAIgJFgBATLAAAGKCBQAQEywAgJhgAQDEBAsAICZYAAAxwQIAiAkWAEBMsAAAYoIFABATLACAmGABAMQECwAgJlgAADHBAgCICRYAQEywAABiggUAEBMsAICYYAEAxAQLACAmWAAAMcECAIgJFgBATLAAAGKCBQAQEywAgJhgAQDEBAsAICZYAAAxwQIAiAkWAEBMsAAAYoIFABATLACAmGABAMQECwAgJlgAADHBAgCICRYAQEywAABiggUAEBMsAICYYAEAxAQLACAmWAAAMcECAIgJFgBATLAAAGKCBQAQEywAgJhgAQDEBAsAICZYAAAxwQIAiAkWAEBMsAAAYoIFABATLACAmGABAMQECwAgJlgAADHBAgCICRYAQEywAABiggUAEBMsAICYYAEAxAQLACAmWAAAMcECAIgJFgBATLAAAGKCBQAQEywAgJhgAQDEBAsAICZYAAAxwQIAiAkWAEBMsAAAYoIFABATLACAmGABAMQECwAgJlgAADHBAgCICRYAQEywAABiggUAEBMsAICYYAEAxAQLACAmWAAAMcECAIgJFgBATLAAAGKCBQAQEywAgJhgAQDEBAsAICZYAAAxwQIAiAkWAEBMsAAAYoIFABATLACAmGABAMQECwAgJlgAADHBAgCICRYAQEywAABiggUAEBMsAICYYAEAxAQLACAmWAAAMcECAIgJFgBATLAAAGKCBQAQEywAgJhgAQDEBAsAICZYAAAxwQIAiAkWAEBMsAAAYoIFABATLACAmGABAMQECwAgJlgAADHBAgCICRYAQEywAABiggUAEBMsAICYYAEAxAQLACAmWAAAMcECAIgJFgBATLAAAGKCBQAQEywAgJhgAQDEBAsAICZYAAAxwQIAiAkWAEBMsAAAYoIFABATLACAmGABAMQECwAgJlgAADHBAgCICRYAQEywAABiggUAEBMsAICYYAEAxAQLACAmWAAAMcECAIgJFgBATLAAAGKCBQAQEywAgJhgAQDEBAsAICZYAAAxwQIAiAkWAEBMsAAAYoIFABATLACAmGABAMQECwAgJlgAADHBAgCICRYAQEywAABiggUAEBMsAICYYAEAxAQLACAmWAAAMcECAIgJFgBATLAAAGKCBQAQEywAgJhgAQDEBAsAICZYAAAxwQIAiAkWAEBMsAAAYoIFABATLACAmGABAMQECwAgJlgAADHBAgCICRYAQEywAABiggUAEBMsAICYYAEAxAQLACAmWAAAMcECAIgJFgBATLAAAGKCBQAQEywAgJhgAQDEBAsAICZYAAAxwQIAiAkWAEBMsAAAYoIFABATLACAmGABAMQECwAgJlgAADHBAgCICRYAQEywAABiggUAEBMsAICYYAEAxAQLACAmWAAAMcECAIgJFgBATLAAAGKCBQAQEywAgJhgAQDEBAsAICZYAAAxwQIAiAkWAEBMsAAAYoIFABATLACAmGABAMQECwAgJlgAADHBAgCICRYAQEywAABiggUAEBMsAICYYAEAxAQLACAmWAAAMcECAIgJFgBATLAAAGKCBQAQEywAgJhgAQCkZj8P4QFd41tktQAAAABJRU5ErkJggg=="
+)
 
 # Excel 第二行的表头是导入契约。前端会先校验一次，后端仍需再次校验，
 # 因为不能把浏览器提交的数据默认视为可信。
@@ -841,57 +909,193 @@ def get_user_info(user: str = Depends(get_current_user)):
 
 @app.get("/api/sales")
 def get_sales_data(user: str = Depends(get_current_user)):
-    """获取飞书销售表格数据（需登录）"""
+    """从 NAS 销售 Excel 读取销售页数据（需登录）。"""
     require_permission(user, "sales", "销售")
 
-    token = get_feishu_token()
-    if not token:
-        raise HTTPException(status_code=500, detail="无法获取飞书 Token")
+    if not os.path.isfile(SALES_XLSX_PATH):
+        raise HTTPException(status_code=500, detail="NAS 销售文件不存在或未挂载到 API 容器")
 
-    records = get_bitable_data(token, table_id=TABLE_ID)
-    if records is None:
-        raise HTTPException(status_code=500, detail="无法读取表格数据")
+    try:
+        from openpyxl import load_workbook
+    except ImportError:
+        # 延迟导入可保持旧部署在未访问销售页时正常启动，并在实际访问时说明依赖问题。
+        raise HTTPException(status_code=500, detail="API 容器缺少 openpyxl，无法读取 NAS 销售文件")
 
-    return {"status": "success", "total": len(records), "data": records}
+    workbook = None
+    try:
+        # data_only=True 返回 Excel 已缓存的计算结果，避免将公式文本交给现有前端的数值计算。
+        workbook = load_workbook(SALES_XLSX_PATH, read_only=True, data_only=True)
+        if SALES_XLSX_SHEET_NAME not in workbook.sheetnames:
+            raise HTTPException(status_code=500, detail=f"NAS 销售文件缺少 {SALES_XLSX_SHEET_NAME} 工作表")
+
+        worksheet = workbook[SALES_XLSX_SHEET_NAME]
+        header_row = next(
+            worksheet.iter_rows(
+                min_row=SALES_XLSX_HEADER_ROW,
+                max_row=SALES_XLSX_HEADER_ROW,
+                values_only=True,
+            ),
+            None,
+        )
+        if header_row is None:
+            raise HTTPException(status_code=500, detail="NAS 销售文件缺少表头")
+
+        headers = [str(value).strip() if value is not None else "" for value in header_row]
+        missing_headers = [field for field in SALES_REQUIRED_HEADERS if field not in headers]
+        if missing_headers:
+            raise HTTPException(
+                status_code=500,
+                detail=f"NAS 销售文件缺少必要表头：{missing_headers[0]}",
+            )
+
+        non_empty_headers = [header for header in headers if header]
+        if len(non_empty_headers) != len(set(non_empty_headers)):
+            # 同名列被 dict 序列化时会彼此覆盖，因此必须在返回浏览器前明确拒绝该源文件。
+            raise HTTPException(status_code=500, detail="NAS 销售文件存在重复表头")
+
+        records = []
+        for row_values in worksheet.iter_rows(
+            min_row=SALES_XLSX_DATA_START_ROW,
+            values_only=True,
+        ):
+            if not any(value is not None and str(value).strip() for value in row_values):
+                continue
+            fields = {
+                header: serialize_excel_value(value)
+                for header, value in zip(headers, row_values)
+                if header
+            }
+            records.append({"fields": fields})
+
+        # 保持原 /api/sales 响应契约，卡片、排序和父 ASIN 聚合无需改动数据层接口。
+        return {"status": "success", "total": len(records), "data": records}
+    except HTTPException:
+        raise
+    except PermissionError:
+        raise HTTPException(status_code=500, detail="NAS 销售文件没有读取权限")
+    except Exception as exc:
+        print(f"读取 NAS 销售文件失败: error_type={type(exc).__name__}")
+        raise HTTPException(status_code=500, detail="读取 NAS 销售文件失败")
+    finally:
+        if workbook is not None:
+            workbook.close()
+
+
+def serialize_excel_value(value):
+    """将 NAS Excel 单元格转为浏览器可安全消费的 JSON 基础类型。"""
+    if value is None:
+        return None
+    if isinstance(value, float) and not math.isfinite(value):
+        return None
+    if isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, datetime):
+        return value.isoformat()
+    return str(value)
+
+
+def read_nas_excel_records(
+    xlsx_path: str,
+    sheet_name: str,
+    required_headers,
+    source_name: str,
+):
+    """
+    读取 NAS 工作簿并转换为现有前端使用的 ``{fields: {...}}`` 记录列表。
+
+    文件路径和工作表名只来自服务器配置，绝不接受浏览器输入；这使库存页面即使
+    读取 NAS 挂载目录，也不能借接口访问其中其他文件。保留 Excel 未展示的列，
+    让后续模板增列不必同步修改后端读取逻辑。
+    """
+    if not os.path.isfile(xlsx_path):
+        raise HTTPException(status_code=500, detail=f"NAS {source_name}文件不存在或未挂载到 API 容器")
+
+    try:
+        from openpyxl import load_workbook
+    except ImportError:
+        raise HTTPException(status_code=500, detail=f"API 容器缺少 openpyxl，无法读取 NAS {source_name}文件")
+
+    workbook = None
+    try:
+        workbook = load_workbook(xlsx_path, read_only=True, data_only=True)
+        if sheet_name not in workbook.sheetnames:
+            raise HTTPException(status_code=500, detail=f"NAS {source_name}文件缺少 {sheet_name} 工作表")
+
+        worksheet = workbook[sheet_name]
+        header_row = next(
+            worksheet.iter_rows(
+                min_row=INVENTORY_XLSX_HEADER_ROW,
+                max_row=INVENTORY_XLSX_HEADER_ROW,
+                values_only=True,
+            ),
+            None,
+        )
+        if header_row is None:
+            raise HTTPException(status_code=500, detail=f"NAS {source_name}文件缺少表头")
+
+        headers = [str(value).strip() if value is not None else "" for value in header_row]
+        missing_headers = [field for field in required_headers if field not in headers]
+        if missing_headers:
+            raise HTTPException(
+                status_code=500,
+                detail=f"NAS {source_name}文件缺少必要表头：{missing_headers[0]}",
+            )
+
+        non_empty_headers = [header for header in headers if header]
+        if len(non_empty_headers) != len(set(non_empty_headers)):
+            raise HTTPException(status_code=500, detail=f"NAS {source_name}文件存在重复表头")
+
+        records = []
+        for row_values in worksheet.iter_rows(
+            min_row=INVENTORY_XLSX_DATA_START_ROW,
+            values_only=True,
+        ):
+            if not any(value is not None and str(value).strip() for value in row_values):
+                continue
+            fields = {
+                header: serialize_excel_value(value)
+                for header, value in zip(headers, row_values)
+                if header
+            }
+            records.append({"fields": fields})
+        return records
+    except HTTPException:
+        raise
+    except PermissionError:
+        raise HTTPException(status_code=500, detail=f"NAS {source_name}文件没有读取权限")
+    except Exception as exc:
+        print(f"读取 NAS {source_name}文件失败: error_type={type(exc).__name__}")
+        raise HTTPException(status_code=500, detail=f"读取 NAS {source_name}文件失败")
+    finally:
+        if workbook is not None:
+            workbook.close()
 
 
 @app.get("/api/inventory")
 def get_inventory_data(user: str = Depends(get_current_user)):
-    """获取飞书库存表格数据（需登录）"""
+    """从 NAS 库存 Excel 读取库存页数据（需登录）。"""
     require_permission(user, "inventory", "库存")
 
-    token = get_feishu_token()
-    if not token:
-        raise HTTPException(status_code=500, detail="无法获取飞书 Token")
-
-    records = get_bitable_data(token, table_id=INVENTORY_TABLE_ID, app_token=INVENTORY_APP_TOKEN)
-    if records is None:
-        raise HTTPException(status_code=500, detail="无法读取库存表格数据")
-
+    records = read_nas_excel_records(
+        INVENTORY_XLSX_PATH,
+        INVENTORY_XLSX_SHEET_NAME,
+        INVENTORY_REQUIRED_HEADERS,
+        "库存",
+    )
     return {"status": "success", "total": len(records), "data": records}
 
 
 @app.get("/api/inventory_value")
 def get_inventory_value_data(user: str = Depends(get_current_user)):
-    """获取飞书库存金额表格数据（需登录，且用户必须具备 value 权限）"""
+    """从 NAS 库存金额 Excel 读取页面数据（需登录，且用户必须具备 value 权限）。"""
     require_value_permission(user)
 
-    if not INVENTORY_VALUE_APP_TOKEN or not INVENTORY_VALUE_TABLE_ID:
-        raise HTTPException(status_code=500, detail="库存金额表格配置缺失")
-
-    token = get_feishu_token()
-    if not token:
-        raise HTTPException(status_code=500, detail="无法获取飞书 Token")
-
-    # 库存金额表可能随 SKU 扩容超过 500 行，使用分页读取避免飞书单次返回上限截断数据。
-    records = get_bitable_data_all(
-        token,
-        table_id=INVENTORY_VALUE_TABLE_ID,
-        app_token=INVENTORY_VALUE_APP_TOKEN
+    records = read_nas_excel_records(
+        INVENTORY_VALUE_XLSX_PATH,
+        INVENTORY_VALUE_XLSX_SHEET_NAME,
+        INVENTORY_VALUE_REQUIRED_HEADERS,
+        "库存金额",
     )
-    if records is None:
-        raise HTTPException(status_code=500, detail="无法读取库存金额表格数据")
-
     return {"status": "success", "total": len(records), "data": records}
 
 
@@ -1587,6 +1791,76 @@ def validate_image_url(url: str) -> str:
     return url
 
 
+def get_image_request_user(_token: Optional[str], authorization: Optional[str]) -> str:
+    """兼容 img 标签的 query token，同时让图片请求遵循与 API 相同的登录校验。"""
+    token = _token
+    if not token and authorization and authorization.startswith("Bearer "):
+        token = authorization[7:]
+    if not token:
+        raise HTTPException(status_code=401, detail="未登录，请先登录")
+
+    user = verify_token(token)
+    if not user:
+        raise HTTPException(status_code=401, detail="登录已过期，请重新登录")
+    return user
+
+
+def get_asin_product_image(asin: str):
+    """
+    从销售、库存页面共用的 NAS 图片目录返回指定子 ASIN 的商品图。
+
+    只接受固定格式的 ASIN，再由服务器拼接固定扩展名；不能把浏览器传入的任意文本
+    当作文件路径。图片不存在时主动返回灰色占位图，使缺图成为正常展示状态而非 404。
+    """
+    normalized_asin = asin.strip().upper()
+    if not SALES_ASIN_PATTERN.fullmatch(normalized_asin):
+        # 对非法路径统一返回 404，不向调用方暴露目录规则或服务器文件信息。
+        raise HTTPException(status_code=404, detail="商品图片不存在")
+    if not os.path.isdir(SALES_IMAGE_DIR):
+        raise HTTPException(status_code=500, detail="NAS 商品图片目录不存在或未挂载到 API 容器")
+
+    for extension in SALES_IMAGE_EXTENSIONS:
+        image_path = os.path.join(SALES_IMAGE_DIR, normalized_asin + extension)
+        if os.path.isfile(image_path):
+            return FileResponse(
+                image_path,
+                media_type=SALES_IMAGE_MEDIA_TYPES[extension],
+                headers={"Cache-Control": "private, max-age=3600"},
+            )
+
+    return Response(
+        content=SALES_PLACEHOLDER_IMAGE,
+        media_type="image/png",
+        headers={"Cache-Control": "private, max-age=3600"},
+    )
+
+
+@app.get("/api/sales/image/{asin}")
+def get_sales_image(
+    asin: str,
+    _token: Optional[str] = None,
+    authorization: Optional[str] = Header(default=None),
+):
+    """按子 ASIN 返回 NAS 商品图片；缺图时返回固定灰色占位图。"""
+    user = get_image_request_user(_token, authorization)
+    require_permission(user, "sales", "销售")
+    return get_asin_product_image(asin)
+
+
+@app.get("/api/inventory/image/{asin}")
+def get_inventory_image(
+    asin: str,
+    _token: Optional[str] = None,
+    authorization: Optional[str] = Header(default=None),
+):
+    """按子 ASIN 返回库存页商品图片；库存或库存金额权限均可访问。"""
+    user = get_image_request_user(_token, authorization)
+    # 两个库存页面复用同一商品图；仅放行能访问至少一个库存页面的用户，
+    # 以免把 NAS 图片目录变成未登录或其他业务角色可读的公开资源。
+    require_any_permission(user, ("inventory", "value"), "库存")
+    return get_asin_product_image(asin)
+
+
 @app.get("/api/image")
 def get_feishu_image(
     url: str,
@@ -1601,14 +1875,7 @@ def get_feishu_image(
     """
     # img 标签不能设置 Authorization Header，因此保留 URL token 兼容现有前端。
     # 认证仍发生在缓存命中前，避免未登录请求读取任何已缓存的业务图片。
-    token = _token
-    if not token and authorization and authorization.startswith("Bearer "):
-        token = authorization[7:]
-    if not token:
-        raise HTTPException(status_code=401, detail="未登录，请先登录")
-    user = verify_token(token)
-    if not user:
-        raise HTTPException(status_code=401, detail="登录已过期，请重新登录")
+    get_image_request_user(_token, authorization)
 
     url = validate_image_url(url)
 
