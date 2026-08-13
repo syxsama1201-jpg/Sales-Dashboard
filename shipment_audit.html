@@ -637,7 +637,21 @@ const DISPLAY_COLS = [
     0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
     16, 17, 18, 19, 20, 21
 ];
-const TABLE_COLUMN_KEYS = DISPLAY_COLS.map(col => `data-${col}`).concat(["status", "action"]);
+/*
+ * 供应商仓的审核顺序由业务审核流决定：先看父/子 ASIN，再在备注后核对可发量与父 ASIN 冗余，
+ * 最后填写本周待出库。这里单独维护供应商仓顺序，避免改变海外仓既有的展示和审核习惯。
+ * V 位展示的“可发”仍取上传表 O 列，X 则直接取上传表 X 列。
+ */
+const SUPPLIER_DISPLAY_COLS = [
+    1, 0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
+    21, 23, 16, 17, 18, 19, 20
+];
+function getDisplayCols(type) {
+    return type === "supplier" ? SUPPLIER_DISPLAY_COLS : DISPLAY_COLS;
+}
+function getTableColumnKeys(type) {
+    return getDisplayCols(type).map(col => `data-${col}`).concat(["status", "action"]);
+}
 const COLUMN_MIN_WIDTH = 72;
 const COLUMN_MAX_WIDTH = 1200;
 const COLUMN_WIDTH_STORAGE_PREFIX = "shipment_audit_column_widths_v1";
@@ -661,6 +675,7 @@ const COLUMN_DEFAULT_WIDTHS = {
     "data-19": 92,
     "data-20": 92,
     "data-21": 92,
+    "data-23": 132,
     status: 76,
     action: 72
 };
@@ -702,7 +717,8 @@ const FALLBACK_HEADERS = {
     18: "最近7天日均",
     19: "forecast日均",
     20: "历史日均",
-    21: "可发"
+    21: "可发",
+    23: "父ASIN冗余"
 };
 
 let store = {
@@ -847,7 +863,7 @@ function ingestRows(rows, sourceName, type) {
     const dataset = createDataset();
 
     if (block.header) {
-        DISPLAY_COLS.forEach(col => {
+        getDisplayCols(type).forEach(col => {
             if (block.header[col] !== null && block.header[col] !== undefined && block.header[col] !== "") {
                 dataset.headers[col] = cleanHeader(block.header[col]);
             }
@@ -979,7 +995,9 @@ function renderWarehouse(type) {
             </div>
             <div class="ship-footer-bar">
                 <span id="${type}DraftStatus">${dataset.rows.length ? "已载入，尚未保存" : "未导入"}</span>
-                <span>显示字段：A 到 M，Q 到 V。G/H/I/K 为页面计算值；V 列显示上传表格 O 列“可发”。</span>
+                <span>${type === "supplier"
+                    ? "显示字段：B、A、C 到 M，O 可发、X 父ASIN冗余、Q 到 U。G/H/I/K 为页面计算值；O 可发读取上传表格 O 列。"
+                    : "显示字段：A 到 M，Q 到 V。G/H/I/K 为页面计算值；V 列显示上传表格 O 列“可发”。"}</span>
             </div>
         </div>
     `;
@@ -990,17 +1008,19 @@ function renderWarehouse(type) {
 
 function renderHeader(type) {
     const headers = store[type].headers;
-    return DISPLAY_COLS.map(col => {
+    return getDisplayCols(type).map(col => {
         const title = getDisplayHeader(headers, col);
         const editClass = EDITABLE_COLS.has(col) ? " editable-head" : "";
         const calcClass = CALC_COLS.has(col) ? " calc-head" : "";
         const letter = colToLetter(col + 1);
-        return `<th class="${editClass}${calcClass}">${letter} ${escapeHtml(title)}${renderColumnResizer(type, `data-${col}`)}</th>`;
+        // 供应商仓的“可发”位于 V 的审核位置，但数值来自上传表 O 列；表头明确来源列，避免人工核对时误认数据来源。
+        const label = type === "supplier" && col === 21 ? "O 可发" : `${letter} ${title}`;
+        return `<th class="${editClass}${calcClass}">${escapeHtml(label)}${renderColumnResizer(type, `data-${col}`)}</th>`;
     }).join("") + `<th>状态${renderColumnResizer(type, "status")}</th><th>操作${renderColumnResizer(type, "action")}</th>`;
 }
 
 function renderColumnGroup(type) {
-    return `<colgroup>${TABLE_COLUMN_KEYS.map(key =>
+    return `<colgroup>${getTableColumnKeys(type).map(key =>
         `<col data-column-key="${key}" style="width:${getColumnWidth(type, key)}px">`
     ).join("")}</colgroup>`;
 }
@@ -1040,7 +1060,7 @@ function restoreColumnWidthsFromLocalCache() {
             const widths = savedWidths[type];
             if (!widths || typeof widths !== "object") return;
 
-            TABLE_COLUMN_KEYS.forEach(key => {
+            getTableColumnKeys(type).forEach(key => {
                 const width = Number(widths[key]);
                 if (!Number.isFinite(width)) return;
                 columnWidthState[type][key] = Math.min(COLUMN_MAX_WIDTH, Math.max(COLUMN_MIN_WIDTH, Math.round(width)));
@@ -1056,7 +1076,7 @@ function saveColumnWidthsToLocalCache() {
         const widths = {};
         Object.keys(columnWidthState).forEach(type => {
             widths[type] = {};
-            TABLE_COLUMN_KEYS.forEach(key => {
+            getTableColumnKeys(type).forEach(key => {
                 const width = Number(columnWidthState[type][key]);
                 if (Number.isFinite(width)) widths[type][key] = width;
             });
@@ -1150,7 +1170,7 @@ function getFilteredRows(type) {
         if (filters.risk === "pending" && toNumber(row.edited[16]) <= 0) return false;
 
         if (keyword) {
-            const text = DISPLAY_COLS.map(col => getDisplayValue(row, col)).join(" ").toLowerCase();
+            const text = getDisplayCols(type).map(col => getDisplayValue(row, col)).join(" ").toLowerCase();
             if (!text.includes(keyword)) return false;
         }
         return true;
@@ -1167,10 +1187,10 @@ function renderBody(type) {
     const rows = getFilteredRows(type);
 
     if (!store[type].rows.length) {
-        return `<tr><td colspan="21"><div class="ship-empty">请上传${WAREHOUSES[type].label} Excel。这里目前是空港，风声比数据多。</div></td></tr>`;
+        return `<tr><td colspan="${getDisplayCols(type).length + 2}"><div class="ship-empty">请上传${WAREHOUSES[type].label} Excel。这里目前是空港，风声比数据多。</div></td></tr>`;
     }
     if (!rows.length) {
-        return `<tr><td colspan="21"><div class="ship-empty">没有匹配数据。筛选器的小网兜有点严格。</div></td></tr>`;
+        return `<tr><td colspan="${getDisplayCols(type).length + 2}"><div class="ship-empty">没有匹配数据。筛选器的小网兜有点严格。</div></td></tr>`;
     }
     return rows.map(row => renderRow(row)).join("");
 }
@@ -1183,7 +1203,7 @@ function renderRow(row) {
         row.changed ? "changed" : ""
     ].filter(Boolean).join(" ");
 
-    const tds = DISPLAY_COLS.map(col => renderCell(row, col)).join("");
+    const tds = getDisplayCols(row.type).map(col => renderCell(row, col)).join("");
     return `<tr class="${cls}">${tds}<td>${getStatusTag(row)}</td><td><button type="button" class="ship-row-delete-btn" onclick="removeImportedRow('${row.type}', '${row.id}')">删除</button></td></tr>`;
 }
 
@@ -1352,9 +1372,9 @@ function buildReviewPayload() {
 
     return {
         savedAt: new Date().toISOString(),
-        displayCols: "A:M,Q:V(V=O可发)",
+        displayCols: "supplier=B,A,C:M,O可发,X,Q:U;overseas=A:M,Q:V(V=O可发)",
         editableCols: "F,J,M,Q",
-        calculatedCols: "G=(L+Q)/F,H_overseas=MAX(0,60*F-L-Q),H_supplier=MIN(V,MAX(0,105*F-L-Q)),I=(H+L+Q)/F,K=(J+L+Q)/F,V=O可发",
+        calculatedCols: "G=(L+Q)/F,H_overseas=MAX(0,60*F-L-Q),H_supplier=MIN(O,MAX(0,105*F-L-Q)),I=(H+L+Q)/F,K=(J+L+Q)/F,O=上传表格O列可发",
         summary: {
             skuCount,
             supplierShipTotal,
@@ -1694,15 +1714,17 @@ function downloadSavedReviewData() {
 
         const headers = { ...FALLBACK_HEADERS, ...(savedWarehouse.headers || {}) };
         const sheetRows = [
-            DISPLAY_COLS
-                .map(col => `${colToLetter(col + 1)} ${getDisplayHeader(headers, col)}`)
+            getDisplayCols(type)
+                .map(col => type === "supplier" && col === 21
+                    ? "O 可发"
+                    : `${colToLetter(col + 1)} ${getDisplayHeader(headers, col)}`)
                 .concat(["状态"])
         ];
 
         savedWarehouse.rows.forEach(row => {
             hasSavedRows = true;
             sheetRows.push(
-                DISPLAY_COLS
+                getDisplayCols(type)
                     .map(col => getSavedReviewCellValue(row, col))
                     .concat([getSavedReviewStatusText(row)])
             );

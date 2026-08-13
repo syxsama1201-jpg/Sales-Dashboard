@@ -200,7 +200,9 @@ function applyFilterAndSort() {
             if (finalBaseline <= 0 && p['今日销量'] > 0) finalBaseline = 1;
             const finalRate = finalBaseline > 0 ? (p['今日销量'] - finalBaseline) / finalBaseline : 0;
 
-            const sellDays = p['昨日销量'] > 0 ? (p['可售库存'] / p['昨日销量']).toFixed(0) : 0;
+            // 保留原始天数供排序等逻辑使用；整数化仅在表格展示层处理，
+            // 避免父 ASIN 聚合视图与子 ASIN 明细视图采用不同取整规则。
+            const sellDays = p['昨日销量'] > 0 ? (p['可售库存'] / p['昨日销量']) : 0;
 
             return {
                 fields: {
@@ -244,6 +246,15 @@ function applyFilterAndSort() {
 }
 
 // ==================== 表格渲染 ====================
+
+function formatSellDays(value) {
+    const numericValue = Number(value);
+    // 库存天数按业务含义应为非负数。异常或空值显示 0，正常数值仅截断小数部分，
+    // 不使用 toFixed(0)，以避免 76.6 天被四舍五入显示为 77 天。
+    return Number.isFinite(numericValue) && numericValue >= 0
+        ? String(Math.trunc(numericValue))
+        : '0';
+}
 
 function getSalesImageUrl(childAsin) {
     const normalizedAsin = String(childAsin || '').trim();
@@ -303,7 +314,7 @@ function renderTable(records) {
             <td>$${fields['昨日单价'] !== undefined && fields['昨日单价'] !== '' ? parseFloat(fields['昨日单价']).toFixed(2) : '0.00'}</td>
             <td>${fields['上周同日销量'] || '-'}</td>
             <td>${fields['可售库存'] || '0'}</td>
-            <td>${fields['可售天数'] || '0'}</td>
+            <td>${formatSellDays(fields['可售天数'])}</td>
             <td>${fields['大类排名'] || '-'}</td>
             <td>${fields['小类排名'] || '-'}</td>
             <td class="action-link">详情</td>
