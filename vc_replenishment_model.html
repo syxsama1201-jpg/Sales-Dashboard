@@ -873,8 +873,8 @@ function switchTab(name, btn){
 // 登录成功后由 common.js 调用
 function onLoginSuccess() {
     requireFreshAuth({
-        pageTag: 'replenishment',
-        activeKey: 'replenishment',
+        pageTag: 'vc_replenishment_model',
+        activeKey: 'logistics',
         onAuthorized: startReplenishmentPage
     });
 }
@@ -889,8 +889,8 @@ function startReplenishmentPage() {
 document.addEventListener('DOMContentLoaded', function() {
     updateForecastLabels();
     requireFreshAuth({
-        pageTag: 'replenishment',
-        activeKey: 'replenishment',
+        pageTag: 'vc_replenishment_model',
+        activeKey: 'logistics',
         onAuthorized: startReplenishmentPage
     });
 });

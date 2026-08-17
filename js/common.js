@@ -12,21 +12,61 @@ const PAGE_ACCESS_MAP = {
     'inventory.html': 'inventory',
     'inventory_value.html': 'value',
     'finance_profit.html': 'finance',
-    'vc_replenishment_model.html': 'replenishment',
-    'shipment_audit.html': 'replenishment',
-    'replenishment_parent_forecast.html': 'replenishment',
+    // 物流页保留旧 replenishment 标签兼容，但新账号可分别授予三个页面权限。
+    'vc_replenishment_model.html': 'vc_replenishment_model',
+    'shipment_audit.html': 'shipment_audit',
+    'replenishment_parent_forecast.html': 'replenishment_parent_forecast',
     'history.html': 'history',
     'history_sales_query.html': 'history'
 };
-const NAV_ITEMS = [
-    { key: 'home', label: '首页', href: FRONT_PAGE, tag: null },
-    { key: 'sales', label: '销售', href: 'sales.html', tag: 'sales' },
-    { key: 'inventory', label: '库存', href: 'inventory.html', tag: 'inventory' },
-    { key: 'value', label: '库存金额', href: 'inventory_value.html', tag: 'value' },
-    { key: 'finance', label: '财务', href: 'finance_profit.html', tag: 'finance' },
-    { key: 'replenishment', label: '发货', href: 'vc_replenishment_model.html', tag: 'replenishment' },
-    { key: 'history', label: '历史', href: 'history.html', tag: 'history' },
-    { key: 'product', label: '产品', href: 'duffle-bag-report.html', tag: null }
+const PAGE_CATEGORY_MAP = {
+    'index.html': 'home',
+    'duffle-bag-report.html': 'product',
+    'sales.html': 'sales',
+    'history.html': 'sales',
+    'history_sales_query.html': 'sales',
+    'inventory.html': 'logistics',
+    'inventory_value.html': 'logistics',
+    'shipment_audit.html': 'logistics',
+    'vc_replenishment_model.html': 'logistics',
+    'replenishment_parent_forecast.html': 'logistics',
+    'finance_profit.html': 'finance'
+};
+const LEGACY_REPLENISHMENT_TAG = 'replenishment';
+const PAGE_TAG_LEGACY_MAP = {
+    shipment_audit: LEGACY_REPLENISHMENT_TAG,
+    vc_replenishment_model: LEGACY_REPLENISHMENT_TAG,
+    replenishment_parent_forecast: LEGACY_REPLENISHMENT_TAG
+};
+const NAV_GROUPS = [
+    { key: 'home', label: '首页', href: FRONT_PAGE },
+    {
+        key: 'product', label: '产品', alwaysVisible: true,
+        children: [{ label: '产品调研', href: 'duffle-bag-report.html' }]
+    },
+    {
+        key: 'sales', label: '销售',
+        children: [
+            { label: '销售看板', href: 'sales.html', tag: 'sales' },
+            { label: '历史销量', href: 'history.html', tag: 'history' },
+            { label: '历史销量查询', href: 'history_sales_query.html', tag: 'history' }
+        ]
+    },
+    { key: 'purchase', label: '采购', alwaysVisible: true, children: [] },
+    {
+        key: 'logistics', label: '物流',
+        children: [
+            { label: '发货审核', href: 'shipment_audit.html', tag: 'shipment_audit', legacyTag: LEGACY_REPLENISHMENT_TAG },
+            { label: '库存查询', href: 'inventory.html', tag: 'inventory' },
+            { label: '库存金额查询', href: 'inventory_value.html', tag: 'value' },
+            { label: '发货管理', href: 'vc_replenishment_model.html', tag: 'vc_replenishment_model', legacyTag: LEGACY_REPLENISHMENT_TAG },
+            { label: '备货模拟', href: 'replenishment_parent_forecast.html', tag: 'replenishment_parent_forecast', legacyTag: LEGACY_REPLENISHMENT_TAG }
+        ]
+    },
+    {
+        key: 'finance', label: '财务',
+        children: [{ label: '财务利润表', href: 'finance_profit.html', tag: 'finance' }]
+    }
 ];
 
 // ==================== 登录认证 ====================
@@ -82,7 +122,11 @@ function getCurrentPageTag() {
 
 function hasPageTag(pageTag) {
     if (!pageTag) return true;
-    return getUserTags().indexOf(pageTag) !== -1;
+    const tags = getUserTags();
+    // 新物流权限按页面粒度授权；旧账号的 replenishment 标签仍可访问原来的三个页面，
+    // 避免部署导航升级后既有账号被意外拒绝。
+    return tags.indexOf(pageTag) !== -1 ||
+        (PAGE_TAG_LEGACY_MAP[pageTag] && tags.indexOf(PAGE_TAG_LEGACY_MAP[pageTag]) !== -1);
 }
 
 function requirePageTag(pageTag) {
@@ -148,6 +192,31 @@ function renderLogoutButton() {
     }
 }
 
+function canAccessNavChild(child, tags) {
+    if (!child.tag) return true;
+    return tags.indexOf(child.tag) !== -1 ||
+        (child.legacyTag && tags.indexOf(child.legacyTag) !== -1);
+}
+
+function closeSidebarPopovers(exceptGroup) {
+    document.querySelectorAll('.nav-category.open').forEach(function(group) {
+        if (group !== exceptGroup) group.classList.remove('open');
+    });
+}
+
+function ensureSidebarPopoverHandlers() {
+    if (document.body.dataset.sidebarPopoverHandlersBound === 'true') return;
+    document.body.dataset.sidebarPopoverHandlersBound = 'true';
+
+    // 侧边栏会在登录和权限刷新时重绘；委托到 document 可避免为旧 DOM 重复注册监听器。
+    document.addEventListener('click', function(event) {
+        if (!event.target.closest('.sidebar')) closeSidebarPopovers();
+    });
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') closeSidebarPopovers();
+    });
+}
+
 function renderSidebar(activeKey) {
     const sidebar = document.querySelector('.sidebar');
     if (!sidebar) return;
@@ -155,21 +224,49 @@ function renderSidebar(activeKey) {
     const tags = getUserTags();
     const loggedIn = !!getToken();
     const currentPage = getCurrentPageName();
-    const currentTag = getCurrentPageTag();
-    const resolvedActiveKey = activeKey || sidebar.getAttribute('data-active-page') || currentTag || (currentPage === FRONT_PAGE ? 'home' : '');
+    const resolvedActiveKey = PAGE_CATEGORY_MAP[currentPage] || activeKey ||
+        sidebar.getAttribute('data-active-page') || (currentPage === FRONT_PAGE ? 'home' : '');
 
-    const visibleItems = NAV_ITEMS.filter(function(item) {
-        if (!loggedIn) return item.key === 'home';
-        return !item.tag || tags.indexOf(item.tag) !== -1;
+    const visibleGroups = NAV_GROUPS.map(function(group) {
+        const visibleChildren = (group.children || []).filter(function(child) {
+            return canAccessNavChild(child, tags);
+        });
+        return Object.assign({}, group, { visibleChildren: visibleChildren });
+    }).filter(function(group) {
+        if (!loggedIn) return group.key === 'home';
+        return group.key === 'home' || group.alwaysVisible || group.visibleChildren.length > 0;
     });
 
-    sidebar.innerHTML = '<div class="sidebar-logo"></div>' + visibleItems.map(function(item) {
-        const activeClass = item.key === resolvedActiveKey ? ' active' : '';
-        const iconStyle = item.key === resolvedActiveKey ? ' style="background-color:#fff;"' : '';
-        return '<a class="nav-item' + activeClass + '" href="' + item.href + '">' +
-            '<div class="nav-icon-placeholder"' + iconStyle + '></div>' + item.label +
-            '</a>';
+    sidebar.innerHTML = '<div class="sidebar-logo"></div>' + visibleGroups.map(function(group) {
+        const activeClass = group.key === resolvedActiveKey ? ' active' : '';
+        const iconStyle = group.key === resolvedActiveKey ? ' style="background-color:#fff;"' : '';
+        if (group.href) {
+            return '<a class="nav-item' + activeClass + '" href="' + group.href + '">' +
+                '<div class="nav-icon-placeholder"' + iconStyle + '></div>' + group.label +
+                '</a>';
+        }
+
+        const popupItems = group.visibleChildren.map(function(child) {
+            return '<a class="nav-popover-item" href="' + child.href + '">' + child.label + '</a>';
+        }).join('') || '<div class="nav-popover-empty">暂无可用功能</div>';
+        return '<div class="nav-category">' +
+            '<button type="button" class="nav-item nav-category-toggle' + activeClass + '" aria-expanded="false">' +
+                '<div class="nav-icon-placeholder"' + iconStyle + '></div>' + group.label +
+            '</button>' +
+            '<div class="nav-popover" role="menu">' + popupItems + '</div>' +
+            '</div>';
     }).join('');
+
+    sidebar.querySelectorAll('.nav-category-toggle').forEach(function(button) {
+        button.addEventListener('click', function() {
+            const group = button.closest('.nav-category');
+            const shouldOpen = !group.classList.contains('open');
+            closeSidebarPopovers(group);
+            group.classList.toggle('open', shouldOpen);
+            button.setAttribute('aria-expanded', String(shouldOpen));
+        });
+    });
+    ensureSidebarPopoverHandlers();
     renderLogoutButton();
 }
 

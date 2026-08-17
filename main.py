@@ -197,7 +197,9 @@ SECRET_KEY = config["SECRET_KEY"]
 # token 有效期（秒），默认 24 小时
 TOKEN_EXPIRE_SECONDS = 2592000
 # 用户列表：用户名 -> {password, tags}
-# tags 可选值: sales, inventory, value, finance, finance_upload, replenishment, history
+# tags 可选值: sales, inventory, value, finance, finance_upload, history；物流页可使用
+# shipment_audit、vc_replenishment_model、replenishment_parent_forecast。replenishment 是旧的
+# 汇总权限标签，为避免旧账号在升级后失权，仍兼容为三个物流页的访问权限。
 USERS = config["USERS"]
 
 # =============图片请求url限制==================
@@ -567,9 +569,9 @@ def require_any_permission(user: str, allowed_tags, permission_name: str):
         raise HTTPException(status_code=403, detail=f"无{permission_name}权限")
 
 
-def require_replenishment_permission(user: str):
-    """限制发货审核接口，只允许带 replenishment 权限的用户访问。"""
-    require_permission(user, "replenishment", "发货审核")
+def require_replenishment_page_permission(user: str, page_tag: str, permission_name: str):
+    """校验单个物流页权限，并兼容旧的全量 replenishment 授权。"""
+    require_any_permission(user, (page_tag, "replenishment"), permission_name)
 
 
 def require_value_permission(user: str):
@@ -1150,7 +1152,7 @@ def get_replenishment_forecast(user: str = Depends(get_current_user)):
     文件约定为 data 工作表第 1 行年月表头、第 2 行预测数据。接口仅返回年月和值，
     不暴露品名、父/子 ASIN 或宿主机文件路径给浏览器。
     """
-    require_replenishment_permission(user)
+    require_replenishment_page_permission(user, "vc_replenishment_model", "发货管理")
 
     if not os.path.isfile(REPLENISHMENT_FORECAST_XLSX_PATH):
         raise HTTPException(status_code=500, detail="NAS 预测文件不存在或未挂载到 API 容器")
@@ -1237,7 +1239,7 @@ def get_replenishment_parent_overseas_inventory(user: str = Depends(get_current_
     敏感列暴露给仅具备发货权限的用户。因此在服务端读取完整源表后立即聚合，
     响应中仅保留父 ASIN 和海外总量。
     """
-    require_replenishment_permission(user)
+    require_replenishment_page_permission(user, "replenishment_parent_forecast", "备货模拟")
 
     if not INVENTORY_VALUE_APP_TOKEN or not INVENTORY_VALUE_TABLE_ID:
         raise HTTPException(status_code=500, detail="库存金额表格配置缺失")
@@ -1327,7 +1329,13 @@ def get_history_data(user: str = Depends(get_current_user)):
     保持原有 /api/history URL 和 {fields: {...}} 响应契约，因此历史页面、历史销量查询、
     发货审核历史弹窗及整款预测页会统一切换到 NAS 数据，而无需分别修改前端请求地址。
     """
-    require_any_permission(user, ["history", "replenishment"], "历史销量")
+    # 历史页本身使用 history；发货审核与整款备货模拟各自需要这份受限数据源。
+    # 不放行发货管理页，避免仅有总量预测权限的用户读取完整历史销量明细。
+    require_any_permission(
+        user,
+        ["history", "replenishment", "shipment_audit", "replenishment_parent_forecast"],
+        "历史销量"
+    )
 
     if not os.path.isfile(HISTORY_SALES_XLSX_PATH):
         raise HTTPException(status_code=500, detail="NAS 历史销量文件不存在或未挂载到 API 容器")
@@ -1691,7 +1699,7 @@ def get_finance_profit(month: Optional[str] = None, user: str = Depends(get_curr
 @app.post("/api/shipment/current")
 def save_shipment_current(body: dict, user: str = Depends(get_current_user)):
     """保存发货审核当前状态。覆盖式保存，不做历史版本。"""
-    require_replenishment_permission(user)
+    require_replenishment_page_permission(user, "shipment_audit", "发货审核")
 
     if not isinstance(body, dict):
         raise HTTPException(status_code=400, detail="请求体必须是 JSON 对象")
@@ -1734,7 +1742,7 @@ def save_shipment_current(body: dict, user: str = Depends(get_current_user)):
 @app.get("/api/shipment/current")
 def get_shipment_current(user: str = Depends(get_current_user)):
     """读取发货审核当前状态。没有保存记录时返回空状态。"""
-    require_replenishment_permission(user)
+    require_replenishment_page_permission(user, "shipment_audit", "发货审核")
 
     conn = sqlite3.connect(SHIPMENT_DB_PATH)
     try:

@@ -1967,8 +1967,8 @@ restoreImportPanelState();
 function onLoginSuccess() {
     if (typeof requireFreshAuth === "function") {
         requireFreshAuth({
-            pageTag: "replenishment",
-            activeKey: "replenishment",
+            pageTag: "shipment_audit",
+            activeKey: "logistics",
             onAuthorized: loadServerReviewState
         });
     }
@@ -1977,8 +1977,8 @@ function onLoginSuccess() {
 window.addEventListener("DOMContentLoaded", function() {
     if (typeof requireFreshAuth === "function") {
         requireFreshAuth({
-            pageTag: "replenishment",
-            activeKey: "replenishment",
+            pageTag: "shipment_audit",
+            activeKey: "logistics",
             onAuthorized: loadServerReviewState
         });
     }

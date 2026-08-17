@@ -21,13 +21,13 @@ var parentForecastState = null;
 
 function onLoginSuccess() {
     requireFreshAuth({
-        pageTag: 'replenishment',
+        pageTag: 'replenishment_parent_forecast',
         onAuthorized: fetchParentForecastSourceData,
-        activeKey: 'replenishment'
+        activeKey: 'logistics'
     });
 }
 
-initProtectedPage('replenishment', fetchParentForecastSourceData, 'replenishment');
+initProtectedPage('replenishment_parent_forecast', fetchParentForecastSourceData, 'logistics');
 
 // ==================== 基础字段与格式工具 ====================
 

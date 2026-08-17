@@ -3,13 +3,20 @@
 body { background-color: #f2f3f5; display: flex; height: 100vh; overflow: hidden; }
 
 /* 侧边栏样式 */
-.sidebar { width: 50px; background-color: #1d232d; color: #fff; display: flex; flex-direction: column; align-items: center; padding: 15px 0; flex-shrink: 0; }
+.sidebar { width: 50px; background-color: #1d232d; color: #fff; display: flex; flex-direction: column; align-items: center; padding: 15px 0; flex-shrink: 0; overflow: visible; position: relative; z-index: 100; }
 .sidebar-logo { width: 30px; height: 30px; background-color: #fff; margin-bottom: 20px; border-radius: 4px; }
 .nav-item { width: 100%; padding: 12px 0; text-align: center; font-size: 12px; color: #a9adb2; cursor: pointer; text-decoration: none; display: block; }
 .nav-item:hover { color: #fff; background-color: rgba(255,255,255,0.05); }
 .nav-item.active { color: #fff; background-color: #165dff; }
 .nav-icon-placeholder { width: 20px; height: 20px; background-color: #4e5969; margin: 0 auto 5px; border-radius: 2px; }
 .nav-item.erp { margin-top: auto; background-color: #165dff; color: #fff; }
+.nav-category { width: 100%; position: relative; }
+.nav-category-toggle { border: 0; background: transparent; font-family: inherit; }
+.nav-popover { display: none; position: absolute; left: calc(100% + 8px); top: 0; min-width: 152px; padding: 6px; background: #fff; border: 1px solid #e5e6eb; border-radius: 4px; box-shadow: 0 8px 20px rgba(29, 35, 45, 0.2); }
+.nav-category.open .nav-popover { display: block; }
+.nav-popover-item { display: block; padding: 8px 10px; color: #4e5969; text-decoration: none; font-size: 13px; border-radius: 2px; white-space: nowrap; }
+.nav-popover-item:hover { color: #165dff; background: #f2f3f5; }
+.nav-popover-empty { padding: 8px 10px; color: #86909c; font-size: 12px; white-space: nowrap; }
 
 /* 右侧主内容容器 */
 .main-container { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
